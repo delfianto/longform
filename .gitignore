@@ -1,0 +1,26 @@
+# npm
+node_modules
+
+# tests
+coverage
+
+# build
+main.js
+*.js.map
+
+# obsidian
+data.json
+
+# dev
+/.envrc
+
+# macos
+*.DS_Store
+
+# test vault
+test-longform-vault/.obsidian/workspace
+test-longform-vault/.obsidian/plugins/longform/*.css
+test-longform-vault/.obsidian/plugins/longform/*.js
+test-longform-vault/.obsidian/plugins/longform/*.json
+/test-longform-vault/.obsidian/workspace.json
+/test-longform-vault/longform-sessions.json

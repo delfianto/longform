@@ -1,10 +1,10 @@
 {
   "name": "longform",
-  "version": "2.1.0",
-  "description": "Write novels, screenplays, and other long projects in Obsidian (https://obsidian.md).",
+  "version": "3.0.0",
+  "description": "Write novels, screenplays, and other long projects in Obsidian (https://obsidian.md). Fork by delfianto.",
   "keywords": [],
   "license": "SEE LICENSE IN LICENSE.md",
-  "author": "",
+  "author": "Dwi Elfianto",
   "type": "module",
   "main": "main.js",
   "scripts": {

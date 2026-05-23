@@ -16,6 +16,7 @@ This document is the source of truth for refactor scope and progress. Tick the t
 | 6   | Test coverage for v3 invariants                    | [x]    | 14 → 54 tests; new files: scene-navigation, scene-stats, word-count-tracker, serialization |
 | 7   | Decompose `main.ts` (opportunistic)                | [x]    | main.ts 350→239 LOC; WorkflowStorage + LeafStyler extracted |
 | 8   | Split Obsidian-Sync awareness from project sync    | [x]    | ad-hoc follow-on; SyncWaiter extracted, StoreVaultSync → ProjectStoreSync |
+| 9   | Drop dead `writeProperty` frontmatter feature      | [x]    | toggle + syncSceneIndices + writeSceneNumbers removed; no readers in plugin |
 
 Status legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 

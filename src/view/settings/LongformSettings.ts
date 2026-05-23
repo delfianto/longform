@@ -6,7 +6,6 @@ import type LongformPlugin from "../../main";
 import { pluginSettings, userScriptSteps } from "src/model/stores";
 import { FolderSuggest } from "./folder-suggest";
 import { FileSuggest } from "./file-suggest";
-import { syncSceneIndices } from "src/model/project-store-sync";
 
 export class LongformSettingsTab extends PluginSettingTab {
   plugin: LongformPlugin;
@@ -55,24 +54,6 @@ export class LongformSettingsTab extends PluginSettingTab {
             ...s,
             numberScenes: value,
           }));
-        });
-      });
-
-    new Setting(containerEl)
-      .setName("Write scene index to frontmatter")
-      .setDesc(
-        "If enabled, will add a scene index, and scene number, to the frontmatter of scene files.",
-      )
-      .addToggle((toggle) => {
-        toggle.setValue(settings.writeProperty);
-        toggle.onChange((value) => {
-          pluginSettings.update((settings) => ({
-            ...settings,
-            writeProperty: value,
-          }));
-          if (value) {
-            syncSceneIndices(this.app);
-          }
         });
       });
 

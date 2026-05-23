@@ -87,7 +87,6 @@ export interface LongformPluginSettings {
   waitForSync: boolean;
   fallbackWaitEnabled: boolean;
   fallbackWaitTime: number;
-  writeProperty: boolean;
 }
 
 export const DEFAULT_SETTINGS: LongformPluginSettings = {
@@ -97,7 +96,6 @@ export const DEFAULT_SETTINGS: LongformPluginSettings = {
   userScriptFolder: null,
   numberScenes: false,
   sceneTemplate: null,
-  writeProperty: false,
   waitForSync: false,
   fallbackWaitEnabled: true,
   fallbackWaitTime: 5,
@@ -112,7 +110,6 @@ export const TRACKED_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
   "waitForSync",
   "fallbackWaitEnabled",
   "fallbackWaitTime",
-  "writeProperty",
 ];
 
 export const PASSTHROUGH_SAVE_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
@@ -122,5 +119,4 @@ export const PASSTHROUGH_SAVE_SETTINGS_PATHS: (keyof LongformPluginSettings)[] =
   "waitForSync",
   "fallbackWaitEnabled",
   "fallbackWaitTime",
-  "writeProperty",
 ];

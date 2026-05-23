@@ -41,7 +41,7 @@ export const selectedProject = derived(
   },
 );
 
-/** The current draft's workflow, if one is selected. */
+/** The currently selected project's workflow, if any. */
 export const currentWorkflow = derived(
   [workflows, selectedProject],
   ([$workflows, $selectedProject]) => {

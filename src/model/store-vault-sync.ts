@@ -44,10 +44,10 @@ export function resolveIfLongformFile(
 
 /**
  * Observes any file with a `longform` metadata entry and keeps its
- * metadata and associated scenes (if any) updated in the `drafts`
+ * metadata and associated scenes (if any) updated in the `projects`
  * store.
  *
- * Subscribes to the `drafts` store and records changes in it to disk.
+ * Subscribes to the `projects` store and records changes in it to disk.
  *
  * Thus, keeps both store and vault in sync.
  */
@@ -147,13 +147,13 @@ export class StoreVaultSync {
   async initialize() {
     try {
       await this.waitForSync();
-      await this.discoverDrafts();
+      await this.discoverProjects();
     } finally {
       this.isInitializing = false;
     }
   }
 
-  async discoverDrafts() {
+  async discoverProjects() {
     const start = new Date().getTime();
 
     const files = this.vault.getMarkdownFiles();
@@ -166,10 +166,10 @@ export class StoreVaultSync {
     // Write dirty projects back to their index files
     const dirtyProjects = loadedProjects.filter((d) => d.dirty);
     for (const d of dirtyProjects) {
-      await this.writeProjectFrontmatter(d.draft);
+      await this.writeProjectFrontmatter(d.project);
     }
 
-    const projectsToWrite = loadedProjects.map((d) => d.draft);
+    const projectsToWrite = loadedProjects.map((d) => d.project);
 
     this.lastKnownProjectsByPath = cloneDeep(
       projectsToWrite.reduce((acc: Record<string, Project>, p) => {
@@ -203,17 +203,17 @@ export class StoreVaultSync {
       return;
     }
 
-    const { draft } = result;
+    const { project } = result;
 
-    const old = this.lastKnownProjectsByPath[draft.vaultPath];
-    if (!old || !isEqual(draft, old)) {
-      this.lastKnownProjectsByPath[draft.vaultPath] = draft;
+    const old = this.lastKnownProjectsByPath[project.vaultPath];
+    if (!old || !isEqual(project, old)) {
+      this.lastKnownProjectsByPath[project.vaultPath] = project;
       projectsStore.update((ps) => {
-        const idx = ps.findIndex((p) => p.vaultPath === draft.vaultPath);
+        const idx = ps.findIndex((p) => p.vaultPath === project.vaultPath);
         if (idx < 0) {
-          ps.push(draft);
+          ps.push(project);
         } else {
-          ps[idx] = draft;
+          ps[idx] = project;
         }
         return ps;
       });
@@ -263,7 +263,7 @@ export class StoreVaultSync {
       if (found) {
         projectsStore.update((all) =>
           all.map((p) => {
-            if (p.vaultPath === found.draft.vaultPath && p.format === "scenes") {
+            if (p.vaultPath === found.project.vaultPath && p.format === "scenes") {
               p.scenes.splice(found.index, 1);
             }
             return p;
@@ -313,7 +313,7 @@ export class StoreVaultSync {
         // in-place rename
         projectsStore.update((all) =>
           all.map((p) => {
-            if (p.vaultPath === foundOld.draft.vaultPath && p.format === "scenes") {
+            if (p.vaultPath === foundOld.project.vaultPath && p.format === "scenes") {
               p.scenes[foundOld.index].title = newTitle;
             }
             return p;
@@ -373,7 +373,7 @@ export class StoreVaultSync {
 
   private async projectFor(
     fileWithMetadata: FileWithMetadata,
-  ): Promise<{ draft: Project; dirty: boolean } | null> {
+  ): Promise<{ project: Project; dirty: boolean } | null> {
     const fm = fileWithMetadata.metadata.frontmatter;
     if (!fm) {
       return null;
@@ -424,7 +424,7 @@ export class StoreVaultSync {
       );
 
       return {
-        draft: {
+        project: {
           format: "scenes",
           title,
           titleInFrontmatter,
@@ -442,7 +442,7 @@ export class StoreVaultSync {
     }
 
     return {
-      draft: {
+      project: {
         format: "single",
         title,
         titleInFrontmatter,
@@ -454,23 +454,23 @@ export class StoreVaultSync {
     };
   }
 
-  private async writeProjectFrontmatter(draft: Project) {
-    const file = this.app.vault.getAbstractFileByPath(draft.vaultPath);
+  private async writeProjectFrontmatter(project: Project) {
+    const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     if (!file || !(file instanceof TFile)) {
       return;
     }
 
     await this.app.fileManager.processFrontMatter(file, (fm) => {
-      setProjectFrontmatter(fm, draft);
+      setProjectFrontmatter(fm, project);
     });
 
     // for multi-scene projects, optionally set a property on each scene that holds its order within the project
     if (get(pluginSettings).writeProperty) {
-      if (draft.format === "scenes") {
+      if (project.format === "scenes") {
         const writes: Promise<void>[] = [];
-        const sceneNumbers = numberScenes(draft.scenes);
+        const sceneNumbers = numberScenes(project.scenes);
         sceneNumbers.forEach((numberedScene, index) => {
-          const sceneFilePath = scenePath(numberedScene.title, draft, this.app.vault);
+          const sceneFilePath = scenePath(numberedScene.title, project, this.app.vault);
 
           const sceneFile = this.app.vault.getAbstractFileByPath(sceneFilePath);
           // false if a folder, or not found
@@ -488,10 +488,10 @@ export class StoreVaultSync {
 
 export function syncSceneIndices(app: App): void | Promise<void[]> {
   const writes: Promise<void>[] = [];
-  get(projectsStore).forEach((draft) => {
-    if (draft.format !== "scenes") return;
-    numberScenes(draft.scenes).map((numberedScene, index) => {
-      const sceneFilePath = scenePath(numberedScene.title, draft, app.vault);
+  get(projectsStore).forEach((project) => {
+    if (project.format !== "scenes") return;
+    numberScenes(project.scenes).map((numberedScene, index) => {
+      const sceneFilePath = scenePath(numberedScene.title, project, app.vault);
 
       const sceneFile = app.vault.getAbstractFileByPath(sceneFilePath);
       // false if a folder, or not found

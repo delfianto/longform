@@ -9,7 +9,7 @@
 
   const regex = /[:\\/]/;
   let valid = $derived(!!title && !regex.test(title));
-  let draftPath = $derived(
+  let projectPath = $derived(
     valid
       ? type === "scenes"
         ? normalizePath(`${parent.path}/${title}/Index.md`)
@@ -23,7 +23,7 @@
     path: string
   ) => Promise<void> = getContext("createProject");
   function onCreateProject() {
-    createProject(type, title, draftPath);
+    createProject(type, title, projectPath);
   }
 </script>
 
@@ -81,7 +81,7 @@
           >{type === "scenes" ? "multi-scene" : "single-scene"} project</b
         >
         at
-        <span class="target-path">{draftPath}</span>
+        <span class="target-path">{projectPath}</span>
       </p>
       <div class="project-creation-container">
         <button type="button" onclick={onCreateProject}>Create</button>

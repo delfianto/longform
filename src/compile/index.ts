@@ -168,33 +168,33 @@ export function calculateWorkflow(
 
 export async function compile(
   app: App,
-  draft: Project,
+  project: Project,
   workflow: Workflow,
   kinds: CompileStepKind[],
   statusCallback: (status: CompileStatus) => void,
 ): Promise<void> {
   let currentInput: any;
 
-  if (draft.format === "single") {
-    const path = draft.vaultPath;
+  if (project.format === "single") {
+    const path = project.vaultPath;
     const contents = await app.vault.adapter.read(path);
     const metadata = app.metadataCache.getCache(path);
 
     currentInput = [
       {
         path,
-        name: draft.title,
+        name: project.title,
         contents,
         metadata,
       },
     ];
   } else {
-    const folderPath = sceneFolderPath(draft, app.vault);
+    const folderPath = sceneFolderPath(project, app.vault);
 
     currentInput = [];
 
     // Build initial inputs
-    for (const scene of numberScenes(draft.scenes)) {
+    for (const scene of numberScenes(project.scenes)) {
       const path = scenePathForFolder(scene.title, folderPath);
       const contents = await app.vault.adapter.read(path);
       const metadata = app.metadataCache.getCache(path);
@@ -225,8 +225,8 @@ export async function compile(
     const context: CompileContext = {
       kind,
       optionValues: formatOptionValues(step.optionValues),
-      projectPath: projectFolderPath(draft, app.vault),
-      draft,
+      projectPath: projectFolderPath(project, app.vault),
+      project,
       app,
       utilities: {
         normalizePath,
@@ -245,7 +245,7 @@ export async function compile(
     // TODO: how to enforce typings here?
     try {
       // handle the case where we're going scene -> manuscript -> scene
-      if (draft.format === "single" && kind === CompileStepKind.Manuscript) {
+      if (project.format === "single" && kind === CompileStepKind.Manuscript) {
         const result = await step.compile(
           {
             contents: currentInput[0].contents,

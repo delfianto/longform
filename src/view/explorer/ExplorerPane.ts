@@ -94,8 +94,8 @@ export class ExplorerPane extends ItemView {
     );
 
     // Create a fully-qualified path to a scene from its name.
-    context.set("makeScenePath", (draft: MultipleSceneProject, sceneName: string) =>
-      scenePath(sceneName, draft, this.app.vault),
+    context.set("makeScenePath", (project: MultipleSceneProject, sceneName: string) =>
+      scenePath(sceneName, project, this.app.vault),
     );
 
     // Context function for opening scene notes on click
@@ -117,22 +117,22 @@ export class ExplorerPane extends ItemView {
     });
 
     const addRelativeScene = (at: "before" | "after", file: TAbstractFile) => {
-      const draft = get(selectedProject) as MultipleSceneProject;
+      const project = get(selectedProject) as MultipleSceneProject;
       let sceneName = "Untitled";
       let count = 0;
-      const sceneNames = new Set(draft.scenes.map((s) => s.title));
+      const sceneNames = new Set(project.scenes.map((s) => s.title));
       while (sceneNames.has(sceneName)) {
         count = count + 1;
         sceneName = `Untitled ${count}`;
       }
 
-      const relativeTo = draft.scenes.map((s) => s.title).indexOf(file.name.split(".md")[0]);
+      const relativeTo = project.scenes.map((s) => s.title).indexOf(file.name.split(".md")[0]);
 
       if (relativeTo >= 0) {
         insertScene(
           this.app,
           projects,
-          draft,
+          project,
           sceneName,
           this.app.vault,
           {
@@ -209,12 +209,12 @@ export class ExplorerPane extends ItemView {
     context.set(
       "compile",
       (
-        draft: Project,
+        project: Project,
         workflow: Workflow,
         kinds: CompileStepKind[],
         statusCallback: (status: CompileStatus) => void,
       ) => {
-        compile(this.app, draft, workflow, kinds, statusCallback);
+        compile(this.app, project, workflow, kinds, statusCallback);
       },
     );
 

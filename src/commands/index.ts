@@ -1,6 +1,6 @@
 import { compileCurrent, compileSelection } from "./compile";
 import {
-  focusCurrentDraft,
+  focusCurrentProject,
   previousScene,
   previousSceneAtIndent,
   nextScene,
@@ -18,7 +18,7 @@ import { insertMultiSceneTemplate, insertSingleSceneTemplate } from "./templates
 const commandBuilders = [
   compileCurrent,
   compileSelection,
-  focusCurrentDraft,
+  focusCurrentProject,
   previousScene,
   previousSceneAtIndent,
   nextScene,

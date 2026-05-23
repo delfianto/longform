@@ -232,7 +232,7 @@
   }
 
   const compile: (
-    draft: Project,
+    project: Project,
     workflow: Workflow,
     kinds: CompileStepKind[],
     statusCallback: (status: CompileStatus) => void

@@ -123,8 +123,8 @@ export type CompileContext = {
   optionValues: { [id: string]: unknown };
   /** The path, relative to the vault root, to the compiled project. */
   projectPath: string;
-  /** The Project option describing the project currently being compiled. */
-  draft: Project;
+  /** The project currently being compiled. */
+  project: Project;
   /** Obsidian’s app object, for accessing APIs. */
   app: App;
   /** Utility functions provided to steps for convenience. */

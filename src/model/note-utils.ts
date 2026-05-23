@@ -123,53 +123,27 @@ async function createWithTemplates(app: App, templatePath: string): Promise<stri
 
 export type SceneWordStats = {
   scene: number;
-  draft: number;
   project: number;
 };
 
 export function statsForScene(
   activeFile: TFile | null,
-  draft: Project,
-  drafts: Project[],
+  project: Project,
   counts: ProjectWordCounts,
 ): SceneWordStats | null {
-  const count = counts[draft.vaultPath];
+  const count = counts[project.vaultPath];
   if (!count) {
     return null;
   }
 
-  const totalForDraft = (vaultPath: string, counts: ProjectWordCounts): number => {
-    const count = counts[vaultPath];
-    if (typeof count === "number") {
-      return count;
-    } else if (typeof count === "object") {
-      return sum(Object.values(count));
-    } else {
-      return 0;
-    }
-  };
+  const projectTotal =
+    typeof count === "number" ? count : typeof count === "object" ? sum(Object.values(count)) : 0;
 
-  const totalForProject = (title: string, drafts: Project[], counts: ProjectWordCounts): number => {
-    const draftsForProject = drafts.filter((d) => d.title === title);
-    return sum(draftsForProject.map((d) => totalForDraft(d.vaultPath, counts)));
-  };
-
-  const draftTotal = totalForDraft(draft.vaultPath, counts);
-  const projectTotal = totalForProject(draft.title, drafts, counts);
-
-  if (draft.format === "single") {
-    return {
-      scene: draftTotal,
-      draft: draftTotal,
-      project: totalForProject(draft.title, drafts, counts),
-    };
-  } else {
-    const sceneName = activeFile ? fileNameFromPath(activeFile.path) : null;
-    const sceneTotal = sceneName && typeof count !== "number" ? count[sceneName] : 0;
-    return {
-      scene: sceneTotal,
-      draft: draftTotal,
-      project: projectTotal,
-    };
+  if (project.format === "single") {
+    return { scene: projectTotal, project: projectTotal };
   }
+
+  const sceneName = activeFile ? fileNameFromPath(activeFile.path) : null;
+  const sceneTotal = sceneName && typeof count !== "number" ? count[sceneName] : 0;
+  return { scene: sceneTotal, project: projectTotal };
 }

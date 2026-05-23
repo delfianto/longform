@@ -64,8 +64,8 @@ export const nextSceneAtIndent: CommandBuilder = (plugin) => ({
     checkForLocation(checking, { position: "next", maintainIndent: true }, plugin.app),
 });
 
-export const focusCurrentDraft: CommandBuilder = () => ({
-  id: "longform-focus-current-draft",
+export const focusCurrentProject: CommandBuilder = () => ({
+  id: "longform-focus-current-project",
   name: "Open current note's project",
   editorCheckCallback(checking) {
     const path = get(activeFile).path;
@@ -81,7 +81,7 @@ export const focusCurrentDraft: CommandBuilder = () => ({
       if (checking && scene) {
         return true;
       } else if (!checking && scene) {
-        selectedProjectPath.set(scene.draft.vaultPath);
+        selectedProjectPath.set(scene.project.vaultPath);
       }
     }
 

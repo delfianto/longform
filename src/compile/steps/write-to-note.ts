@@ -32,7 +32,7 @@ export const WriteToNoteStep = makeBuiltinStep({
       throw new Error("Cannot write non-manuscript as note.");
     } else {
       let target = context.optionValues["target"] as string;
-      target = target.replace("$1", context.draft.title);
+      target = target.replace("$1", context.project.title);
 
       const openAfter = context.optionValues["open-after"] as boolean;
       if (!target || target.length == 0) {

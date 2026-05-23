@@ -65,7 +65,7 @@ export class WordCountTracker {
     this.unsubscribers.forEach((u) => u());
   }
 
-  private async countWordsInProject(draft: Project): Promise<Record<string, number> | number> {
+  private async countWordsInProject(project: Project): Promise<Record<string, number> | number> {
     const countForPath = async (path: string) => {
       const file = this.vault.getAbstractFileByPath(path);
       if (file instanceof TFile) {
@@ -75,45 +75,45 @@ export class WordCountTracker {
       return 0;
     };
 
-    if (draft.format === "single") {
-      return await countForPath(draft.vaultPath);
+    if (project.format === "single") {
+      return await countForPath(project.vaultPath);
     } else {
       const sceneCounts: Record<string, number> = {};
-      for (const scene of draft.scenes) {
-        const path = scenePath(scene.title, draft, this.vault);
+      for (const scene of project.scenes) {
+        const path = scenePath(scene.title, project, this.vault);
         sceneCounts[scene.title] = await countForPath(path);
       }
       return sceneCounts;
     }
   }
 
-  async countWordsInProjects(drafts: Project[]) {
+  async countWordsInProjects(projects: Project[]) {
     const counts: ProjectWordCounts = {};
 
-    for (const draft of drafts) {
-      counts[draft.vaultPath] = await this.countWordsInProject(draft);
+    for (const project of projects) {
+      counts[project.vaultPath] = await this.countWordsInProject(project);
     }
 
     projectWordCountsStore.set(counts);
   }
 
   private async countProjectContaining(file: TAbstractFile, oldPath: string | null) {
-    const draft = projectForPath(file.path, get(projectsStore));
-    if (draft) {
-      const draftCount = await this.countWordsInProject(draft);
+    const project = projectForPath(file.path, get(projectsStore));
+    if (project) {
+      const projectCount = await this.countWordsInProject(project);
       projectWordCountsStore.update((counts) => {
-        counts[draft.vaultPath] = draftCount;
+        counts[project.vaultPath] = projectCount;
         return counts;
       });
       return;
     }
 
     if (oldPath) {
-      const draft = projectForPath(oldPath, get(projectsStore));
-      if (draft) {
-        const draftCount = await this.countWordsInProject(draft);
+      const project = projectForPath(oldPath, get(projectsStore));
+      if (project) {
+        const projectCount = await this.countWordsInProject(project);
         projectWordCountsStore.update((counts) => {
-          counts[draft.vaultPath] = draftCount;
+          counts[project.vaultPath] = projectCount;
           return counts;
         });
         return;

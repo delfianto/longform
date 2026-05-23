@@ -20,16 +20,16 @@
 
   const app = useApp();
 
-  let currentDraftIndex = $state(-1);
+  let currentProjectIndex = $state(-1);
   $effect(() => {
     if ($selectedProject) {
-      currentDraftIndex = $projects.findIndex(
+      currentProjectIndex = $projects.findIndex(
         (d) => d.vaultPath === $selectedProject.vaultPath
       );
     }
   });
 
-  const makeScenePath: (draft: MultipleSceneProject, scene: string) => string =
+  const makeScenePath: (project: MultipleSceneProject, scene: string) => string =
     getContext("makeScenePath");
 
   type SceneItem = {
@@ -139,16 +139,16 @@
   };
 
   function itemOrderChanged(newItems: SceneItem[]) {
-    if (currentDraftIndex >= 0 && $selectedProject.format === "scenes") {
+    if (currentProjectIndex >= 0 && $selectedProject.format === "scenes") {
       const scenes: IndentedScene[] = newItems.map((d) => ({
         title: d.name,
         indent: d.name === draggingID ? draggingIndent : d.indent,
       }));
-      ($projects[currentDraftIndex] as MultipleSceneProject).scenes = scenes;
+      ($projects[currentProjectIndex] as MultipleSceneProject).scenes = scenes;
 
       sceneHistory = [
         {
-          draftVaultPath: $projects[currentDraftIndex].vaultPath,
+          projectVaultPath: $projects[currentProjectIndex].vaultPath,
           scenes: cloneDeep(scenes),
         },
         ...sceneHistory,
@@ -289,7 +289,7 @@
 
   // Undo/Redo
   const undoManager = getContext("undoManager") as UndoManager;
-  let sceneHistory: { draftVaultPath: string; scenes: IndentedScene[] }[] = $state([]);
+  let sceneHistory: { projectVaultPath: string; scenes: IndentedScene[] }[] = $state([]);
   let undoIndex = $state(0);
 
   undoManager.on((type, _evt, _ctx) => {
@@ -303,34 +303,34 @@
     if (
       oldIndex !== undoIndex &&
       newValue &&
-      currentDraftIndex >= 0 &&
-      newValue.draftVaultPath === $projects[currentDraftIndex].vaultPath &&
-      $projects[currentDraftIndex].format === "scenes"
+      currentProjectIndex >= 0 &&
+      newValue.projectVaultPath === $projects[currentProjectIndex].vaultPath &&
+      $projects[currentProjectIndex].format === "scenes"
     ) {
       const newScenes = sceneHistory[undoIndex].scenes;
-      ($projects[currentDraftIndex] as MultipleSceneProject).scenes = newScenes;
+      ($projects[currentProjectIndex] as MultipleSceneProject).scenes = newScenes;
 
       new Notice(`${type === "undo" ? "Undid" : "Redid"} scene reordering`);
     }
     return false;
   });
 
-  const unsubscribe = selectedProject.subscribe((draft) => {
-    if (!draft) {
+  const unsubscribe = selectedProject.subscribe((project) => {
+    if (!project) {
       return;
     }
     sceneHistory = sceneHistory.filter(
-      (s) => s.draftVaultPath === draft.vaultPath
+      (s) => s.projectVaultPath === project.vaultPath
     );
     if (
-      draft.format === "scenes" &&
+      project.format === "scenes" &&
       (sceneHistory.length === 0 ||
-        sceneHistory[0].draftVaultPath !== draft.vaultPath)
+        sceneHistory[0].projectVaultPath !== project.vaultPath)
     ) {
       sceneHistory = [
         {
-          draftVaultPath: draft.vaultPath,
-          scenes: cloneDeep((draft as MultipleSceneProject).scenes),
+          projectVaultPath: project.vaultPath,
+          scenes: cloneDeep((project as MultipleSceneProject).scenes),
         },
       ];
       undoIndex = 0;

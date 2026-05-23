@@ -180,18 +180,7 @@ export default class LongformPlugin extends Plugin {
     this.userScriptObserver = new UserScriptObserver(this.app.vault, userScriptFolder);
     await this.userScriptObserver.loadUserSteps();
 
-    // Load workflows: vault file takes priority, fall back to data.json for one-time migration.
-    let _workflows = await this.loadWorkflowsFromVault();
-
-    if (!_workflows && settings["workflows"]) {
-      console.log("[Longform] Migrating workflows from data.json to vault storage.");
-      _workflows = settings["workflows"];
-    }
-
-    if (!_workflows) {
-      console.log("[Longform] No workflows found; adding default workflow.");
-      _workflows = DEFAULT_WORKFLOWS;
-    }
+    const _workflows = (await this.loadWorkflowsFromVault()) ?? DEFAULT_WORKFLOWS;
 
     const deserializedWorkflows: Record<string, Workflow> = {};
     Object.entries(_workflows).forEach(([key, value]) => {
@@ -338,7 +327,7 @@ export default class LongformPlugin extends Plugin {
     );
 
     // STORE-VAULT SYNC
-    this.storeVaultSync.discoverDrafts();
+    this.storeVaultSync.discoverProjects();
 
     this.registerEvent(
       this.app.metadataCache.on(
@@ -388,8 +377,8 @@ export default class LongformPlugin extends Plugin {
   private styleLongformLeaves(allProjects: Project[] = get(projects)) {
     this.app.workspace.getLeavesOfType("markdown").forEach((leaf) => {
       if (leaf.view instanceof FileView) {
-        const draft = projectForPath(leaf.view.file.path, allProjects);
-        if (draft) {
+        const project = projectForPath(leaf.view.file.path, allProjects);
+        if (project) {
           leaf.view.containerEl.classList.add(LONGFORM_LEAF_CLASS);
         } else {
           leaf.view.containerEl.classList.remove(LONGFORM_LEAF_CLASS);

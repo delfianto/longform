@@ -3,6 +3,7 @@ import {
   TFile,
   type App,
   type CachedMetadata,
+  type EventRef,
   type MetadataCache,
   type Vault,
 } from "obsidian";
@@ -56,7 +57,7 @@ export class StoreVaultSync {
   private app: App;
   private vault: Vault;
   private metadataCache: MetadataCache;
-  private isInitializing = true;
+  private registerEvent: (ref: EventRef) => void;
   private settlingTime = 30000; // fallback settling time
 
   private lastKnownProjectsByPath: Record<string, Project> = {};
@@ -64,10 +65,11 @@ export class StoreVaultSync {
 
   private pathsToIgnoreNextChange: Set<string> = new Set();
 
-  constructor(app: App) {
+  constructor(app: App, registerEvent: (ref: EventRef) => void) {
     this.app = app;
     this.vault = app.vault;
     this.metadataCache = app.metadataCache;
+    this.registerEvent = registerEvent;
   }
 
   destroy(): void {
@@ -146,12 +148,16 @@ export class StoreVaultSync {
   }
 
   async initialize() {
-    try {
-      await this.waitForSync();
-      await this.discoverProjects();
-    } finally {
-      this.isInitializing = false;
-    }
+    await this.waitForSync();
+    await this.discoverProjects();
+    // Register vault listeners only after the initial discover/load
+    // completes, so handlers cannot fire during initialization.
+    this.registerEvent(this.app.metadataCache.on("changed", this.fileMetadataChanged.bind(this)));
+    this.registerEvent(this.app.vault.on("create", (f) => this.fileCreated(f as TFile)));
+    this.registerEvent(this.app.vault.on("delete", (f) => this.fileDeleted(f as TFile)));
+    this.registerEvent(
+      this.app.vault.on("rename", (f, oldPath) => this.fileRenamed(f as TFile, oldPath)),
+    );
   }
 
   async discoverProjects() {
@@ -190,7 +196,6 @@ export class StoreVaultSync {
   }
 
   async fileMetadataChanged(file: TFile, _data: string, cache: CachedMetadata) {
-    if (this.isInitializing) return;
     if (this.pathsToIgnoreNextChange.delete(file.path)) {
       return;
     }
@@ -222,105 +227,129 @@ export class StoreVaultSync {
   }
 
   async fileCreated(file: TFile) {
-    if (this.isInitializing) return;
-    const ps = get(projectsStore);
-
-    const scenePath = file.parent.path;
-    const memberProject = ps.find((p) => {
-      if (p.format !== "scenes") return false;
-      const parentPath = this.vault.getAbstractFileByPath(p.vaultPath).parent.path;
-      const targetPath = normalizePath(`${parentPath}/${p.sceneFolder}`);
-      return targetPath === scenePath && !p.scenes.map((s) => s.title).contains(file.basename);
-    });
-    if (memberProject) {
-      updateScenesProject(memberProject.vaultPath, (p) => {
-        if (!p.unknownFiles.contains(file.basename)) {
-          p.unknownFiles.push(file.basename);
-        }
-      });
+    const owner = this.findOwningSceneFolder(file, get(projectsStore));
+    if (owner) {
+      this.addUnknownSceneFile(owner.vaultPath, file.basename);
     }
   }
 
   async fileDeleted(file: TFile) {
-    if (this.isInitializing) return;
     const ps = get(projectsStore);
-    const projectIndex = ps.findIndex((p) => p.vaultPath === file.path);
-    if (projectIndex >= 0) {
-      const remaining = cloneDeep(ps);
-      remaining.splice(projectIndex, 1);
-      projectsStore.set(remaining);
-      if (get(selectedProjectPath) === file.path) {
-        selectedProjectPath.set(remaining.length > 0 ? remaining[0].vaultPath : null);
-      }
-    } else {
-      const found = findScene(file.path, ps);
-      if (found) {
-        updateScenesProject(found.project.vaultPath, (p) => {
-          p.scenes.splice(found.index, 1);
-        });
-      } else {
-        const ownerProject = ps.find(
-          (p) => p.format === "scenes" && p.unknownFiles.contains(file.basename),
-        );
-        if (ownerProject) {
-          updateScenesProject(ownerProject.vaultPath, (p) => {
-            p.unknownFiles = p.unknownFiles.filter((f) => f !== file.basename);
-          });
-        }
-      }
+    if (this.removeProjectByPath(file.path)) return;
+
+    const found = findScene(file.path, ps);
+    if (found) {
+      this.removeSceneFromProject(found.project.vaultPath, found.index);
+      return;
+    }
+
+    const ownerProject = ps.find(
+      (p) => p.format === "scenes" && p.unknownFiles.contains(file.basename),
+    );
+    if (ownerProject) {
+      this.removeUnknownFile(ownerProject.vaultPath, file.basename);
     }
   }
 
   async fileRenamed(file: TFile, oldPath: string) {
-    if (this.isInitializing) return;
+    if (this.renameProjectInStore(oldPath, file.path)) return;
+
     const ps = get(projectsStore);
-    const projectIndex = ps.findIndex((p) => p.vaultPath === oldPath);
-    if (projectIndex >= 0) {
-      projectsStore.update((all) => {
-        const p = all[projectIndex];
-        p.vaultPath = file.path;
-        if (!p.titleInFrontmatter) {
-          p.title = fileNameFromPath(file.path);
-        }
-        all[projectIndex] = p;
-        return all;
-      });
-      if (get(selectedProjectPath) === oldPath) {
-        selectedProjectPath.set(file.path);
-      }
-    } else {
-      const newTitle = fileNameFromPath(file.path);
-      const foundOld = findScene(oldPath, ps);
-      const oldParent = oldPath.split("/").slice(0, -1).join("/");
+    const newTitle = fileNameFromPath(file.path);
+    const foundOld = findScene(oldPath, ps);
+    const oldParent = oldPath.split("/").slice(0, -1).join("/");
 
-      if (foundOld && oldParent === file.parent.path) {
-        // in-place rename
-        updateScenesProject(foundOld.project.vaultPath, (p) => {
-          p.scenes[foundOld.index].title = newTitle;
-        });
-      } else {
-        // moved out of a project
-        const oldProject = ps.find(
-          (p) => p.format === "scenes" && sceneFolderPath(p, this.vault) === oldParent,
-        );
-        if (oldProject) {
-          updateScenesProject(oldProject.vaultPath, (p) => {
-            p.scenes = p.scenes.filter((s) => s.title !== file.basename);
-            p.unknownFiles = p.unknownFiles.filter((f) => f !== file.basename);
-          });
-        }
-
-        // moved into a project
-        const newProject = ps.find(
-          (p) => p.format === "scenes" && sceneFolderPath(p, this.vault) === file.parent.path,
-        );
-        if (newProject) {
-          updateScenesProject(newProject.vaultPath, (p) => {
-            p.unknownFiles.push(file.basename);
-          });
-        }
-      }
+    if (foundOld && oldParent === file.parent.path) {
+      // In-place rename within the same scene folder.
+      this.renameSceneInProject(foundOld.project.vaultPath, foundOld.index, newTitle);
+      return;
     }
+
+    // File moved out of a known project's scene folder.
+    const oldOwner = ps.find(
+      (p) => p.format === "scenes" && sceneFolderPath(p, this.vault) === oldParent,
+    );
+    if (oldOwner) {
+      updateScenesProject(oldOwner.vaultPath, (p) => {
+        p.scenes = p.scenes.filter((s) => s.title !== file.basename);
+        p.unknownFiles = p.unknownFiles.filter((f) => f !== file.basename);
+      });
+    }
+
+    // File moved into a known project's scene folder.
+    const newOwner = ps.find(
+      (p) => p.format === "scenes" && sceneFolderPath(p, this.vault) === file.parent.path,
+    );
+    if (newOwner) {
+      this.addUnknownSceneFile(newOwner.vaultPath, file.basename);
+    }
+  }
+
+  // ---- Intent-named private operations used by the file event handlers. ----
+
+  private findOwningSceneFolder(file: TFile, ps: Project[]): Project | undefined {
+    const sceneFolder = file.parent.path;
+    return ps.find((p) => {
+      if (p.format !== "scenes") return false;
+      const parentPath = this.vault.getAbstractFileByPath(p.vaultPath).parent.path;
+      const targetPath = normalizePath(`${parentPath}/${p.sceneFolder}`);
+      return targetPath === sceneFolder && !p.scenes.map((s) => s.title).contains(file.basename);
+    });
+  }
+
+  private addUnknownSceneFile(projectVaultPath: string, basename: string) {
+    updateScenesProject(projectVaultPath, (p) => {
+      if (!p.unknownFiles.contains(basename)) p.unknownFiles.push(basename);
+    });
+  }
+
+  /** Returns true if a project with `path` existed and was removed. */
+  private removeProjectByPath(path: string): boolean {
+    const ps = get(projectsStore);
+    if (!ps.some((p) => p.vaultPath === path)) return false;
+    const remaining = cloneDeep(ps).filter((p) => p.vaultPath !== path);
+    projectsStore.set(remaining);
+    if (get(selectedProjectPath) === path) {
+      selectedProjectPath.set(remaining.length > 0 ? remaining[0].vaultPath : null);
+    }
+    return true;
+  }
+
+  private removeSceneFromProject(projectVaultPath: string, sceneIndex: number) {
+    updateScenesProject(projectVaultPath, (p) => {
+      p.scenes.splice(sceneIndex, 1);
+    });
+  }
+
+  private removeUnknownFile(projectVaultPath: string, basename: string) {
+    updateScenesProject(projectVaultPath, (p) => {
+      p.unknownFiles = p.unknownFiles.filter((f) => f !== basename);
+    });
+  }
+
+  /** Returns true if a project at `oldPath` existed and was renamed to `newPath`. */
+  private renameProjectInStore(oldPath: string, newPath: string): boolean {
+    const ps = get(projectsStore);
+    const idx = ps.findIndex((p) => p.vaultPath === oldPath);
+    if (idx < 0) return false;
+    projectsStore.update((all) => {
+      const p = all[idx];
+      p.vaultPath = newPath;
+      if (!p.titleInFrontmatter) {
+        p.title = fileNameFromPath(newPath);
+      }
+      return all;
+    });
+    if (get(selectedProjectPath) === oldPath) {
+      selectedProjectPath.set(newPath);
+    }
+    return true;
+  }
+
+  private renameSceneInProject(projectVaultPath: string, sceneIndex: number, newTitle: string) {
+    updateScenesProject(projectVaultPath, (p) => {
+      p.scenes[sceneIndex].title = newTitle;
+    });
   }
 
   async projectsStoreChanged(newValue: Project[]) {

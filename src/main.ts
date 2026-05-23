@@ -6,7 +6,6 @@ import {
   FileView,
   addIcon,
   TAbstractFile,
-  TFile,
   TFolder,
   normalizePath,
 } from "obsidian";
@@ -115,7 +114,7 @@ export default class LongformPlugin extends Plugin {
     await this.loadSettings();
     this.addSettingTab(new LongformSettingsTab(this.app, this));
 
-    this.storeVaultSync = new StoreVaultSync(this.app);
+    this.storeVaultSync = new StoreVaultSync(this.app, this.registerEvent.bind(this));
 
     this.app.workspace.onLayoutReady(this.postLayoutInit.bind(this));
 
@@ -300,78 +299,34 @@ export default class LongformPlugin extends Plugin {
   }
 
   private watchProjects(): void {
-    // USER SCRIPTS
-    this.registerEvent(
-      this.app.vault.on(
-        "modify",
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver),
-      ),
-    );
+    const onScript = this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver);
+    this.registerVaultListeners({
+      modify: onScript,
+      create: onScript,
+      delete: onScript,
+      rename: onScript,
+    });
 
-    this.registerEvent(
-      this.app.vault.on("create", (file) => {
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(file);
-      }),
-    );
+    const onWordCountChange = (file: TAbstractFile) =>
+      this.wordCountTracker.debouncedCountProjectContaining(file);
+    this.registerVaultListeners({
+      modify: this.wordCountTracker.fileModified.bind(this.wordCountTracker),
+      create: onWordCountChange,
+      delete: onWordCountChange,
+      rename: onWordCountChange,
+    });
+  }
 
-    this.registerEvent(
-      this.app.vault.on("delete", (file) => {
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(file);
-      }),
-    );
-
-    this.registerEvent(
-      this.app.vault.on("rename", (file, _oldPath) => {
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(file);
-      }),
-    );
-
-    // STORE-VAULT SYNC
-    this.storeVaultSync.discoverProjects();
-
-    this.registerEvent(
-      this.app.metadataCache.on(
-        "changed",
-        this.storeVaultSync.fileMetadataChanged.bind(this.storeVaultSync),
-      ),
-    );
-
-    this.registerEvent(
-      this.app.vault.on("create", (file) => this.storeVaultSync.fileCreated(file as TFile)),
-    );
-
-    this.registerEvent(
-      this.app.vault.on("delete", (file) => this.storeVaultSync.fileDeleted(file as TFile)),
-    );
-
-    this.registerEvent(
-      this.app.vault.on("rename", (file, oldPath) =>
-        this.storeVaultSync.fileRenamed(file as TFile, oldPath),
-      ),
-    );
-
-    // WORD COUNTS
-    this.registerEvent(
-      this.app.vault.on("modify", this.wordCountTracker.fileModified.bind(this.wordCountTracker)),
-    );
-
-    this.registerEvent(
-      this.app.vault.on("create", (file) => {
-        this.wordCountTracker.debouncedCountProjectContaining.bind(this.wordCountTracker)(file);
-      }),
-    );
-
-    this.registerEvent(
-      this.app.vault.on("delete", (file) => {
-        this.wordCountTracker.debouncedCountProjectContaining.bind(this.wordCountTracker)(file);
-      }),
-    );
-
-    this.registerEvent(
-      this.app.vault.on("rename", (file, _oldPath) => {
-        this.wordCountTracker.debouncedCountProjectContaining.bind(this.wordCountTracker)(file);
-      }),
-    );
+  private registerVaultListeners(handlers: {
+    modify?: (file: TAbstractFile) => void;
+    create?: (file: TAbstractFile) => void;
+    delete?: (file: TAbstractFile) => void;
+    rename?: (file: TAbstractFile, oldPath: string) => void;
+  }) {
+    if (handlers.modify) this.registerEvent(this.app.vault.on("modify", handlers.modify));
+    if (handlers.create) this.registerEvent(this.app.vault.on("create", handlers.create));
+    if (handlers.delete) this.registerEvent(this.app.vault.on("delete", handlers.delete));
+    if (handlers.rename) this.registerEvent(this.app.vault.on("rename", handlers.rename));
   }
 
   private styleLongformLeaves(allProjects: Project[] = get(projects)) {

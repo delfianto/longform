@@ -12,7 +12,7 @@ This document is the source of truth for refactor scope and progress. Tick the t
 | 2   | TypeScript hygiene + Obsidian internals            | [x]    | any/@ts-ignore 24→10 (remaining are deferred per plan) |
 | 3   | Strip dead semantics + public API rename           | [x]    | v2 migration gone, CompileContext.draft→project, all draft locals → project |
 | 4   | Decompose `model/` grab-bags                       | [x]    | note-utils split 3 ways; EBOOK_STRING_KEYS hoisted; updateProject/updateScenesProject helpers added |
-| 5   | Refactor `store-vault-sync.ts` event handlers      | [ ]    |       |
+| 5   | Refactor `store-vault-sync.ts` event handlers      | [x]    | handlers as dispatchers, 6 intent-named helpers; isInitializing gone; vault-listener helper in main.ts |
 | 6   | Test coverage for v3 invariants                    | [ ]    |       |
 | 7   | Decompose `main.ts` (opportunistic)                | [ ]    |       |
 

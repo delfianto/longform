@@ -69,8 +69,8 @@ async function ensureContainingFolderExists(app: App, filePath: string): Promise
 
   try {
     await app.vault.createFolder(containingFolderPath);
-  } catch (e) {
-    // do nothing, folder already existed
+  } catch {
+    // folder already existed; nothing to do
   }
 }
 

@@ -7,7 +7,7 @@
   let type: "scenes" | "single" = $state("scenes");
   let title: string = $state("");
 
-  const regex = /[:\\\/]/;
+  const regex = /[:\\/]/;
   let valid = $derived(!!title && !regex.test(title));
   let draftPath = $derived(
     valid

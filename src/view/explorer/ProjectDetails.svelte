@@ -21,6 +21,7 @@
   const app = useApp();
 
   let showMetdata = $state(true);
+  let showEbook = $state(false);
   let showWordCount = $state(true);
 
   function titleChanged(event: Event) {
@@ -116,6 +117,102 @@
     }
   }
 
+  // ---- eBook metadata helpers ----
+
+  type EbookStringKey =
+    | "author"
+    | "language"
+    | "identifier"
+    | "description"
+    | "cover"
+    | "publisher"
+    | "pubdate"
+    | "rights"
+    | "series";
+
+  function updateEbook(mutator: (e: Record<string, any>) => void) {
+    if (!$selectedProjectPath) return;
+    projects.update((all) =>
+      all.map((p) => {
+        if (p.vaultPath === $selectedProjectPath) {
+          const next = { ...p.ebook };
+          mutator(next);
+          p.ebook = next;
+        }
+        return p;
+      })
+    );
+  }
+
+  function ebookStringChanged(field: EbookStringKey) {
+    return (event: Event) => {
+      const raw = (event.target as HTMLInputElement | HTMLTextAreaElement).value;
+      const trimmed = raw.trim();
+      updateEbook((e) => {
+        if (trimmed.length > 0) {
+          e[field] = trimmed;
+        } else {
+          delete e[field];
+        }
+      });
+    };
+  }
+
+  function subjectsChanged(event: Event) {
+    const raw = (event.target as HTMLInputElement).value;
+    const parsed = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    updateEbook((e) => {
+      if (parsed.length > 0) {
+        e.subjects = parsed;
+      } else {
+        delete e.subjects;
+      }
+    });
+  }
+
+  function seriesIndexChanged(event: Event) {
+    const raw = (event.target as HTMLInputElement).value.trim();
+    const n = raw.length === 0 ? NaN : Number(raw);
+    updateEbook((e) => {
+      if (Number.isFinite(n)) {
+        e.seriesIndex = n;
+      } else {
+        delete e.seriesIndex;
+      }
+    });
+  }
+
+  function generateIdentifier() {
+    // crypto.randomUUID is available in modern Electron / Obsidian.
+    const id =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? `urn:uuid:${crypto.randomUUID()}`
+        : `urn:uuid:${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
+    updateEbook((e) => {
+      e.identifier = id;
+    });
+  }
+
+  let coverInput: HTMLInputElement = $state(null);
+  let coverSuggestEl: HTMLInputElement | null = null;
+  // The cover input lives inside `{#if showEbook}` (collapsed by default), so
+  // it does not exist at mount time. Bind FileSuggest the first time the input
+  // appears, and rebind if the underlying element is replaced.
+  $effect(() => {
+    if (coverInput && coverInput !== coverSuggestEl) {
+      new FileSuggest(app, coverInput);
+      coverSuggestEl = coverInput;
+    }
+  });
+
+  let ebook = $derived($selectedProject?.ebook ?? {});
+  let subjectsText = $derived(
+    Array.isArray(ebook.subjects) ? ebook.subjects.join(", ") : ""
+  );
+
   let projectCount = $state(0);
   let sceneCount: number | null = $state(null);
 
@@ -210,6 +307,127 @@
               template.
             </p>
           {/if}
+        </div>
+      {/if}
+    </div>
+  {/if}
+  {#if $selectedProject}
+    <div class="longform-project-section">
+      <button
+        type="button"
+        class="longform-project-details-section-header"
+        onclick={() => { showEbook = !showEbook; }}
+      >
+        <Disclosure collapsed={!showEbook} />
+        <h4>eBook Metadata</h4>
+      </button>
+      {#if showEbook}
+        <div>
+          <label for="longform-ebook-author">Author</label>
+          <input
+            id="longform-ebook-author"
+            type="text"
+            value={ebook.author ?? ""}
+            onblur={ebookStringChanged("author")}
+          />
+
+          <label for="longform-ebook-language">Language</label>
+          <input
+            id="longform-ebook-language"
+            type="text"
+            placeholder="en"
+            value={ebook.language ?? ""}
+            onblur={ebookStringChanged("language")}
+          />
+
+          <label for="longform-ebook-identifier">Identifier</label>
+          <div class="longform-ebook-identifier-row">
+            <input
+              id="longform-ebook-identifier"
+              type="text"
+              placeholder="urn:uuid:…"
+              value={ebook.identifier ?? ""}
+              onblur={ebookStringChanged("identifier")}
+            />
+            <button
+              type="button"
+              class="longform-ebook-generate"
+              onclick={generateIdentifier}
+              title="Generate a new UUID"
+            >
+              Generate
+            </button>
+          </div>
+
+          <label for="longform-ebook-description">Description</label>
+          <textarea
+            id="longform-ebook-description"
+            rows="3"
+            value={ebook.description ?? ""}
+            onblur={ebookStringChanged("description")}
+          ></textarea>
+
+          <label for="longform-ebook-cover">Cover</label>
+          <input
+            id="longform-ebook-cover"
+            type="text"
+            placeholder="assets/cover.png"
+            value={ebook.cover ?? ""}
+            bind:this={coverInput}
+            onblur={ebookStringChanged("cover")}
+          />
+
+          <label for="longform-ebook-publisher">Publisher</label>
+          <input
+            id="longform-ebook-publisher"
+            type="text"
+            value={ebook.publisher ?? ""}
+            onblur={ebookStringChanged("publisher")}
+          />
+
+          <label for="longform-ebook-pubdate">Publication Date</label>
+          <input
+            id="longform-ebook-pubdate"
+            type="date"
+            value={ebook.pubdate ?? ""}
+            onblur={ebookStringChanged("pubdate")}
+          />
+
+          <label for="longform-ebook-rights">Rights</label>
+          <input
+            id="longform-ebook-rights"
+            type="text"
+            value={ebook.rights ?? ""}
+            onblur={ebookStringChanged("rights")}
+          />
+
+          <label for="longform-ebook-subjects">Subjects</label>
+          <input
+            id="longform-ebook-subjects"
+            type="text"
+            placeholder="fiction, science-fiction"
+            value={subjectsText}
+            onblur={subjectsChanged}
+          />
+          <p class="longform-project-warning">Comma-separated. Maps to EPUB <code>dc:subject</code>.</p>
+
+          <label for="longform-ebook-series">Series</label>
+          <input
+            id="longform-ebook-series"
+            type="text"
+            value={ebook.series ?? ""}
+            onblur={ebookStringChanged("series")}
+          />
+
+          <label for="longform-ebook-series-index">Series Index</label>
+          <input
+            id="longform-ebook-series-index"
+            type="number"
+            min="0"
+            step="1"
+            value={ebook.seriesIndex ?? ""}
+            onblur={seriesIndexChanged}
+          />
         </div>
       {/if}
     </div>
@@ -357,5 +575,26 @@
   .progress .value {
     height: 100%;
     background-color: var(--text-accent);
+  }
+
+  textarea {
+    width: 100%;
+    resize: vertical;
+    font-family: inherit;
+  }
+
+  .longform-ebook-identifier-row {
+    display: flex;
+    gap: var(--size-4-2);
+    align-items: center;
+  }
+
+  .longform-ebook-identifier-row input {
+    flex: 1;
+  }
+
+  .longform-ebook-generate {
+    flex-shrink: 0;
+    font-size: var(--font-ui-smaller);
   }
 </style>

@@ -1,7 +1,13 @@
 import type { TFile } from "obsidian";
 import { derived, writable } from "svelte/store";
 
-import { projects, projectWordCounts, selectedProject, sessions, pluginSettings } from "src/model/stores";
+import {
+  projects,
+  projectWordCounts,
+  selectedProject,
+  sessions,
+  pluginSettings,
+} from "src/model/stores";
 import { type SceneWordStats, statsForScene, fileNameFromPath } from "src/model/note-utils";
 import { draftForPath } from "src/model/scene-navigation";
 import type { Project, ProjectWordCounts } from "src/model/types";
@@ -40,7 +46,12 @@ export const activeFileWordCountStatus = derived(
   [activeFile, selectedProject, projects, projectWordCounts],
   ([$activeFile, , $projects, $projectWordCounts]) =>
     $activeFile
-      ? statsFor($activeFile, draftForPath($activeFile.path, $projects), $projects, $projectWordCounts)
+      ? statsFor(
+          $activeFile,
+          draftForPath($activeFile.path, $projects),
+          $projects,
+          $projectWordCounts,
+        )
       : null,
 );
 

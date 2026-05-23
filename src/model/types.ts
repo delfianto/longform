@@ -1,9 +1,23 @@
 export const LONGFORM_CURRENT_PLUGIN_DATA_VERSION = 3;
-export const LONGFORM_CURRENT_INDEX_VERSION = 1;
+export const LONGFORM_CURRENT_INDEX_VERSION = 2;
 
 export type IndentedScene = {
   title: string;
   indent: number;
+};
+
+export type EbookMetadata = {
+  author?: string;
+  language?: string;
+  identifier?: string;
+  description?: string;
+  cover?: string;
+  publisher?: string;
+  pubdate?: string;
+  rights?: string;
+  subjects?: string[];
+  series?: string;
+  seriesIndex?: number;
 };
 
 export type MultipleSceneProject = {
@@ -17,6 +31,7 @@ export type MultipleSceneProject = {
   ignoredFiles: string[] | null;
   unknownFiles: string[];
   sceneTemplate: string | null;
+  ebook: EbookMetadata;
 };
 
 export type SingleSceneProject = {
@@ -25,6 +40,7 @@ export type SingleSceneProject = {
   titleInFrontmatter: boolean;
   vaultPath: string;
   workflow: string | null;
+  ebook: EbookMetadata;
 };
 
 export type Project = MultipleSceneProject | SingleSceneProject;
@@ -88,13 +104,6 @@ export interface LongformPluginSettings {
   fallbackWaitEnabled: boolean;
   fallbackWaitTime: number;
   writeProperty: boolean;
-  // DEPRECATED. To be removed in future, needed now for migrations.
-  projects: {
-    [path: string]: {
-      indexFile: string;
-      draftsPath: string;
-    };
-  };
 }
 
 export const DEFAULT_SESSION_FILE = "longform-sessions.json";
@@ -117,7 +126,6 @@ export const DEFAULT_SETTINGS: LongformPluginSettings = {
   numberScenes: false,
   sceneTemplate: null,
   writeProperty: false,
-  projects: {},
   waitForSync: false,
   fallbackWaitEnabled: true,
   fallbackWaitTime: 5,
@@ -125,7 +133,6 @@ export const DEFAULT_SETTINGS: LongformPluginSettings = {
 
 export const TRACKED_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
   "version",
-  "projects",
   "selectedProjectPath",
   "userScriptFolder",
   "sessionStorage",

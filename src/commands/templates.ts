@@ -42,6 +42,7 @@ const callbackForFormat = (
         ignoredFiles: [],
         unknownFiles: [],
         sceneTemplate: null,
+        ebook: {},
       };
       return multi;
     } else {
@@ -51,6 +52,7 @@ const callbackForFormat = (
         titleInFrontmatter: false,
         vaultPath: file.path,
         workflow: null,
+        ebook: {},
       };
       return single;
     }

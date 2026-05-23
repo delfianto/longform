@@ -28,17 +28,17 @@ Although the Scenes tab does not correspond directly to a file hierarchy, you ca
 
 ![a simple list of nested scenes](./res/simple-scenes-list-nested.png)
 
-Clicking the disclosure array next to `first scene` will hide the second and third scenes. As you might expect, indentations are also reflected in your index file’s frontmatter:
+Clicking the disclosure arrow next to `first scene` will hide the second and third scenes. Indentations are also reflected in your index file’s frontmatter — each indent level is encoded as a leading `> ` token, similar to a Markdown blockquote:
 
 ```yaml
 scenes:
   - first scene
-  - - second scene
-    - third scene
+  - "> second scene"
+  - "> third scene"
   - fourth
 ```
 
-Longform takes advantage of YAML’s syntax for nested arrays to “indent” the frontmatter and make it look like your hierarchy.
+This flat-array convention (introduced in Longform 3.0) replaces the older nested-array form. The reason: Obsidian's Properties UI cannot safely round-trip nested arrays, so a single accidental save through the Properties panel could flatten and destroy the hierarchy. Encoding indent inside each string keeps the data as one flat array of scalars, which Obsidian preserves correctly across edits.
 
 There are two ways to change the indentation level of a scene:
 
@@ -53,15 +53,19 @@ Here’s the YAML, if you’re curious:
 
 ```yaml
 scenes:
-  - - - first scene
-    - second scene
+  - "> > > first scene"
+  - "> second scene"
   - third scene
-  - - - - - - - fourth
+  - "> > > > > > > fourth"
 ```
 
 What does this mean? Who knows! It’s your project, organize it how you want.
 
-Of note, Longform includes a documented [API](https://github.com/kevboh/longform/blob/main/src/api/LongformAPI.ts) that can parse and create these YAML lists.
+### Display titles
+
+Scene rows in the sidebar show whatever each scene file's frontmatter `title` is, falling back to the filename when no title is set. This lets you name files something concise (e.g. `ch01-s02.md`) while displaying a friendlier label in the Scenes tab. The filename is still what's stored in `scenes:` — only the visible label changes.
+
+Of note, Longform includes a documented [API](../src/api/LongformAPI.ts) with `encodeIndentedScenes` and `decodeFlatScenes` helpers for working with this list format programmatically.
 
 ## Unknown Scenes & Ignored Scenes
 

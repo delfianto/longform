@@ -35,6 +35,7 @@
   type SceneItem = {
     id: string;
     name: string;
+    displayName: string;
     path: string;
     indent: number;
     collapsible: boolean;
@@ -44,10 +45,13 @@
   };
 
   let collapsedItems: string[] = $state([]);
+  // Bumped on every metadata-changed event so $derived items re-runs and
+  // picks up edits to a scene's frontmatter `title`.
+  let metadataTick = $state(0);
 
   let items: SceneItem[] = $derived(
     $selectedProject && $selectedProject.format === "scenes"
-      ? itemsFromScenes($selectedProject.scenes, collapsedItems)
+      ? itemsFromScenes($selectedProject.scenes, collapsedItems, metadataTick)
       : []
   );
 
@@ -57,7 +61,8 @@
 
   function itemsFromScenes(
     indentedScenes: IndentedScene[],
-    _collapsedItems: string[]
+    _collapsedItems: string[],
+    _tick: number
   ): SceneItem[] {
     const scenes = numberScenes(indentedScenes);
     const itemsToReturn: SceneItem[] = [];
@@ -78,19 +83,23 @@
       const path = makeScenePath($selectedProject as MultipleSceneProject, title);
       const file = app.vault.getAbstractFileByPath(path);
       let status = undefined;
+      let displayName = title;
       if (file && file instanceof TFile) {
         const metadata = app.metadataCache.getFileCache(file);
-        if (
-          metadata &&
-          metadata.frontmatter &&
-          metadata.frontmatter["status"]
-        ) {
-          status = `${metadata.frontmatter["status"]}`;
+        if (metadata && metadata.frontmatter) {
+          if (metadata.frontmatter["status"]) {
+            status = `${metadata.frontmatter["status"]}`;
+          }
+          const fmTitle = metadata.frontmatter["title"];
+          if (typeof fmTitle === "string" && fmTitle.trim().length > 0) {
+            displayName = fmTitle.trim();
+          }
         }
       }
       const item = {
         id: title,
         name: title,
+        displayName,
         indent,
         path,
         collapsible: nextScene && nextScene.indent > indent,
@@ -103,6 +112,16 @@
 
     return itemsToReturn;
   }
+
+  // Re-render scene labels when frontmatter changes (e.g. user edits a scene's
+  // `title` property). Filtered to .md files to avoid waking up on unrelated
+  // metadata events.
+  const metadataEventRef = app.metadataCache.on("changed", (file: TFile) => {
+    if (file && file.extension === "md") {
+      metadataTick = metadataTick + 1;
+    }
+  });
+  onDestroy(() => app.metadataCache.offref(metadataEventRef));
 
   let isSorting = $state(false);
   const sortableOptions: Sortable.Options = {
@@ -376,8 +395,9 @@
               onkeydown={item.path === editingPath ? onKeydown : null}
               onblur={item.path === editingPath ? onBlur : null}
               contenteditable={item.path === editingPath}
+              title={item.displayName !== item.name ? item.name : undefined}
             >
-              {item.name}
+              {item.path === editingPath ? item.name : item.displayName}
             </div>
           </div>
         </div>

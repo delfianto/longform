@@ -1,4 +1,4 @@
-import "../styles.css";
+import "./styles.css";
 
 import {
   Plugin,
@@ -44,7 +44,6 @@ import {
   sessions,
 } from "./model/stores";
 import { addCommands } from "./commands";
-import { determineMigrationStatus } from "./model/migration";
 import { draftForPath } from "./model/scene-navigation";
 import { WritingSessionTracker } from "./model/writing-session-tracker";
 import NewProjectModal from "./view/project-lifecycle/new-project-modal";
@@ -181,8 +180,7 @@ export default class LongformPlugin extends Plugin {
       TRACKED_SETTINGS_PATHS,
     ) as LongformPluginSettings;
     pluginSettings.set(_pluginSettings);
-    selectedProjectPath.set(_pluginSettings.selectedDraftVaultPath);
-    determineMigrationStatus(_pluginSettings);
+    selectedProjectPath.set(_pluginSettings.selectedProjectPath);
 
     // We load user scripts imperatively first to cover cases where we need to deserialize
     // workflows that may contain them.
@@ -269,10 +267,7 @@ export default class LongformPlugin extends Plugin {
       if (!(await this.app.vault.adapter.exists(this.workflowsDir))) {
         await this.app.vault.adapter.mkdir(this.workflowsDir);
       }
-      await this.app.vault.adapter.write(
-        this.workflowsPath,
-        JSON.stringify(serialized, null, 2),
-      );
+      await this.app.vault.adapter.write(this.workflowsPath, JSON.stringify(serialized, null, 2));
     } catch (e) {
       console.error("[Longform] Failed to save workflows to vault:", e);
     }
@@ -311,7 +306,7 @@ export default class LongformPlugin extends Plugin {
 
       pluginSettings.update((s) => ({
         ...s,
-        selectedDraftVaultPath: d.vaultPath,
+        selectedProjectPath: d.vaultPath,
       }));
       this.cachedSettings = get(pluginSettings);
       await this.saveSettings();

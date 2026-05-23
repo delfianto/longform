@@ -1,15 +1,14 @@
 ---
-longform:
-  format: scenes
-  title: A Novel; or, What Projects Look Like Now
-  workflow: Default Workflow
-  sceneFolder: scenes-hello
-  scenes:
-    - in this draft
-    - test
-    - test3
-    - test4
-  ignoredFiles: []
+longform: scenes
+title: "A Novel; or, What Projects Look Like Now"
+workflow: Default Workflow
+sceneFolder: scenes-hello
+scenes:
+  - in this draft
+  - test
+  - test3
+  - test4
+ignoredFiles: []
 othermetadata: sure
 test: new
 ---

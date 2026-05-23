@@ -1,10 +1,22 @@
 import { App, TFile, Vault } from "obsidian";
 import { get, type Writable } from "svelte/store";
 
-import type { Project, IndentedScene, MultipleSceneProject } from "./types";
+import type { EbookMetadata, Project, IndentedScene, MultipleSceneProject } from "./types";
 import { scenePath } from "src/model/scene-navigation";
 import { createNoteWithPotentialTemplate } from "./note-utils";
 import { pluginSettings } from "./stores";
+
+const EBOOK_STRING_FIELDS = [
+  "author",
+  "language",
+  "identifier",
+  "description",
+  "cover",
+  "publisher",
+  "pubdate",
+  "rights",
+  "series",
+] as const satisfies readonly (keyof EbookMetadata)[];
 
 type SceneInsertionLocation = {
   at: "before" | "after" | "end";
@@ -76,27 +88,114 @@ export async function insertScene(
 }
 
 export function setProjectFrontmatter(obj: Record<string, any>, project: Project) {
-  obj["longform"] = {};
-  obj["longform"]["format"] = project.format;
-  if (project.titleInFrontmatter) {
-    obj["longform"]["title"] = project.title;
+  // Cutover hygiene: strip any legacy nested `longform:` object that may
+  // linger in a file that was previously written by the pre-v3 schema.
+  if (obj["longform"] && typeof obj["longform"] === "object") {
+    delete obj["longform"];
   }
+
+  obj["longform"] = project.format;
+
+  if (project.titleInFrontmatter) {
+    obj["title"] = project.title;
+  } else {
+    delete obj["title"];
+  }
+
   if (project.workflow) {
-    obj["longform"]["workflow"] = project.workflow;
+    obj["workflow"] = project.workflow;
+  } else {
+    delete obj["workflow"];
   }
 
   if (project.format === "scenes") {
-    obj["longform"]["sceneFolder"] = project.sceneFolder;
-    obj["longform"]["scenes"] = indentedScenesToArrays(project.scenes);
+    obj["sceneFolder"] = project.sceneFolder;
+    obj["scenes"] = encodeIndentedScenes(project.scenes);
     if (project.sceneTemplate) {
-      obj["longform"]["sceneTemplate"] = project.sceneTemplate;
+      obj["sceneTemplate"] = project.sceneTemplate;
+    } else {
+      delete obj["sceneTemplate"];
     }
-    obj["longform"]["ignoredFiles"] = project.ignoredFiles;
+    obj["ignoredFiles"] = project.ignoredFiles ?? [];
+  } else {
+    delete obj["sceneFolder"];
+    delete obj["sceneTemplate"];
+    delete obj["scenes"];
+    delete obj["ignoredFiles"];
+  }
+
+  writeEbookMetadata(obj, project.ebook);
+}
+
+function writeEbookMetadata(obj: Record<string, any>, ebook: EbookMetadata | undefined) {
+  const e = ebook ?? {};
+  for (const key of EBOOK_STRING_FIELDS) {
+    const value = e[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      obj[key] = value;
+    } else {
+      delete obj[key];
+    }
+  }
+
+  if (Array.isArray(e.subjects) && e.subjects.length > 0) {
+    obj["subjects"] = e.subjects.slice();
+  } else {
+    delete obj["subjects"];
+  }
+
+  if (typeof e.seriesIndex === "number" && Number.isFinite(e.seriesIndex)) {
+    obj["seriesIndex"] = e.seriesIndex;
+  } else {
+    delete obj["seriesIndex"];
   }
 }
 
 // Legacy alias used by store-vault-sync
 export const setDraftOnFrontmatterObject = setProjectFrontmatter;
+
+const SCENE_INDENT_TOKEN = "> ";
+
+/**
+ * Encodes a list of indented scenes into a flat array of strings, where each
+ * scene's indent is represented by a leading run of `> ` tokens.
+ *
+ * Why a flat list? Obsidian's Properties UI cannot meaningfully render or
+ * edit nested arrays; the moment a user saves an index file with one,
+ * Obsidian may rewrite the frontmatter and lose the hierarchy. Encoding
+ * indent inside the string keeps the data as a single flat array of
+ * scalars — Obsidian-safe.
+ */
+export function encodeIndentedScenes(scenes: IndentedScene[]): string[] {
+  return scenes.map(({ title, indent }) => {
+    const prefix = SCENE_INDENT_TOKEN.repeat(Math.max(0, indent));
+    return `${prefix}${title}`;
+  });
+}
+
+/**
+ * Decodes a flat array of scene strings back into IndentedScene objects.
+ * Counts the run of `> ` tokens at the start of each string to determine
+ * the scene's indent level.
+ */
+export function decodeFlatScenes(items: unknown): IndentedScene[] {
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .map((raw): IndentedScene | null => {
+      if (typeof raw !== "string") return null;
+      let rest = raw;
+      let indent = 0;
+      while (rest.startsWith(SCENE_INDENT_TOKEN)) {
+        indent += 1;
+        rest = rest.slice(SCENE_INDENT_TOKEN.length);
+      }
+      const title = rest;
+      if (title.length === 0) return null;
+      return { title, indent };
+    })
+    .filter((s): s is IndentedScene => s !== null);
+}
 
 export function indentedScenesToArrays(indented: IndentedScene[]) {
   const result: any = [];

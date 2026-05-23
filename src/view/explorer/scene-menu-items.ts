@@ -38,10 +38,7 @@ export const ignoreScene = (fileName: string) => {
       (ps[index] as MultipleSceneProject).scenes = target.scenes.filter(
         (it) => it.title !== fileName,
       );
-      (ps[index] as MultipleSceneProject).ignoredFiles = [
-        ...(target.ignoredFiles ?? []),
-        fileName,
-      ];
+      (ps[index] as MultipleSceneProject).ignoredFiles = [...(target.ignoredFiles ?? []), fileName];
       (ps[index] as MultipleSceneProject).unknownFiles = target.unknownFiles.filter(
         (f) => f !== fileName,
       );

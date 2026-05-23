@@ -1,5 +1,7 @@
 import {
   arraysToIndentedScenes,
+  decodeFlatScenes,
+  encodeIndentedScenes,
   indentedScenesToArrays,
   numberScenes,
   formatSceneNumber,
@@ -9,6 +11,46 @@ import type { IndentedScene } from "src/model/types";
 
 /** Provides API access to useful Longform-specific functions. */
 export class LongformAPI {
+  /**
+   * Encodes a list of indented scenes into a flat array of strings using
+   * the `> ` prefix convention introduced in Longform v3. This matches what
+   * is written to an index file's `scenes:` frontmatter.
+   *
+   * For example, the input:
+   *
+   * ```js
+   * [
+   *  {title: "first", indent: 0},
+   *  {title: "second", indent: 1},
+   *  {title: "third", indent: 0}
+   * ]
+   * ```
+   *
+   * produces:
+   *
+   * ```js
+   * ["first", "> second", "third"]
+   * ```
+   *
+   * @param scenes Array of `{title, indent}` scene objects.
+   * @returns Flat array of strings safe to write as YAML frontmatter.
+   */
+  public encodeIndentedScenes(scenes: IndentedScene[]): string[] {
+    return encodeIndentedScenes(scenes);
+  }
+
+  /**
+   * Decodes a flat array of scene strings (using the `> ` prefix
+   * convention) back into `IndentedScene` objects. The inverse of
+   * `encodeIndentedScenes`.
+   *
+   * @param items Flat array of strings (as read from `scenes:` frontmatter).
+   * @returns Array of `{title, indent}` scene objects.
+   */
+  public decodeFlatScenes(items: unknown): IndentedScene[] {
+    return decodeFlatScenes(items);
+  }
+
   /**
    * Converts an array of scenes w/ indentation information into a YAML-compatible array of potentially-nested arrays.
    *
@@ -39,6 +81,7 @@ export class LongformAPI {
    *
    * @param indentedScenes Array of { title: string; indent: number } scene objects, where `title` is the scene’s name and `indent` is the 0-indexed indentation level.
    * @returns A potentially-nested array of strings. Each element in the returned array is of type `string | string[] | string[][]...` ad infinitum; TypeScript struggles to represent this sort of type, unfortunately.
+   * @deprecated Longform v3 stores scenes as a flat array using the `> ` prefix convention. Use {@link encodeIndentedScenes} instead.
    */
   public indentedScenesToNestedArrays(indentedScenes: IndentedScene[]): any[] {
     return indentedScenesToArrays(indentedScenes);
@@ -73,6 +116,7 @@ export class LongformAPI {
    *
    * @param yamlArray An array of potentially-nested strings. Each element in the returned array is of type `string | string[] | string[][]...` ad infinitum; TypeScript struggles to represent this sort of type, unfortunately.
    * @returns Array of { title: string; indent: number } scene objects, where `title` is the scene’s name and `indent` is the 0-indexed indentation level.
+   * @deprecated Longform v3 stores scenes as a flat array using the `> ` prefix convention. Use {@link decodeFlatScenes} instead.
    */
   public nestedArraysToIndentedScenes(yamlArray: any[]): IndentedScene[] {
     return arraysToIndentedScenes(yamlArray);

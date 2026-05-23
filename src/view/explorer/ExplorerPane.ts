@@ -9,16 +9,15 @@ import {
 } from "obsidian";
 import type { CompileStatus, Workflow } from "src/compile";
 import { compile, CompileStepKind } from "src/compile";
-import type { MultipleSceneDraft } from "src/model/types";
+import type { Draft, MultipleSceneDraft } from "src/model/types";
 import AddStepModal from "../compile/add-step-modal";
 import ConfirmActionModal from "../ConfirmActionModal";
 import { ICON_NAME } from "../icon";
 import ExplorerView from "./ExplorerView.svelte";
 import { mount, unmount } from "svelte";
 import { scenePath } from "src/model/scene-navigation";
-import { migrate } from "src/model/migration";
 import { get } from "svelte/store";
-import { projects, pluginSettings, selectedProject } from "src/model/stores";
+import { projects, selectedProject } from "src/model/stores";
 import { insertScene } from "src/model/draft-utils";
 import { UndoManager } from "../undo/undo-manager";
 import { ignoreScene } from "./scene-menu-items";
@@ -249,10 +248,6 @@ export class ExplorerPane extends ItemView {
         menu.showAtPosition({ x, y });
       },
     );
-
-    context.set("migrate", () => {
-      migrate(get(pluginSettings), this.app);
-    });
 
     this.explorerView = mount(ExplorerView, {
       target: this.contentEl,

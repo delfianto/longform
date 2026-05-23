@@ -52,6 +52,7 @@ export default class NewProjectModalContainer extends Modal {
               ignoredFiles: [],
               unknownFiles: [],
               sceneTemplate: null,
+              ebook: {},
             };
             return multi;
           } else {
@@ -61,6 +62,7 @@ export default class NewProjectModalContainer extends Modal {
               titleInFrontmatter: true,
               vaultPath: path,
               workflow: null,
+              ebook: {},
             };
             return single;
           }

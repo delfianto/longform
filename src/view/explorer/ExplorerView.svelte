@@ -9,14 +9,7 @@
   import ProjectPicker from "./ProjectPicker.svelte";
   import SceneList from "./SceneList.svelte";
   import ProjectDetails from "./ProjectDetails.svelte";
-  import { needsMigration } from "src/model/migration";
-  import { getContext } from "svelte";
   import Tab from "./Tab.svelte";
-
-  const _migrate: () => void = getContext("migrate");
-  function doMigration() {
-    _migrate();
-  }
 
   $effect(() => {
     if (
@@ -29,24 +22,7 @@
   });
 </script>
 
-{#if $needsMigration}
-  <div class="longform-explorer">
-    <p>
-      Longform has been upgraded and requires a migration to a new format.
-      Deprecated index files will be deleted, and some scene files may move.
-      It's recommended to back up your vault before migrating.
-    </p>
-    <p>
-      You can view the docs and an explanation of what this migration does <a
-        href="https://github.com/kevboh/longform/blob/main/docs/MIGRATING_FROM_VERSION_1_TO_2.md"
-        >here</a
-      >.
-    </p>
-    <button class="longform-migrate-button" type="button" onclick={doMigration}
-      >Migrate</button
-    >
-  </div>
-{:else if $waitingForSync}
+{#if $waitingForSync}
   <div class="longform-sync-wait">
     <div class="longform-spinner"></div>
     <div class="longform-sync-message">
@@ -105,15 +81,6 @@
 <style>
   .longform-explorer {
     font-size: var(--longform-explorer-font-size);
-  }
-
-  .longform-migrate-button {
-    background-color: var(--interactive-accent);
-    color: var(--text-on-accent);
-  }
-
-  .longform-migrate-button:hover {
-    background-color: var(--interactive-accent-hover);
   }
 
   .tab-list {

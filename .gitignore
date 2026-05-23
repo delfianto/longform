@@ -5,6 +5,7 @@ node_modules
 coverage
 
 # build
+dist
 main.js
 *.js.map
 

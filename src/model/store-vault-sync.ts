@@ -9,7 +9,7 @@ import {
 import { cloneDeep, isEqual } from "lodash";
 import { get, type Unsubscriber } from "svelte/store";
 
-import type { Project } from "./types";
+import type { EbookMetadata, Project } from "./types";
 import {
   projects as projectsStore,
   pluginSettings,
@@ -17,7 +17,7 @@ import {
   selectedProjectPath,
 } from "./stores";
 import {
-  arraysToIndentedScenes,
+  decodeFlatScenes,
   formatSceneNumber,
   numberScenes,
   setDraftOnFrontmatterObject,
@@ -35,7 +35,8 @@ export function resolveIfLongformFile(
   file: TFile,
 ): FileWithMetadata | null {
   const metadata = metadataCache.getFileCache(file);
-  if (metadata && metadata.frontmatter && metadata.frontmatter["longform"]) {
+  const format = metadata?.frontmatter?.["longform"];
+  if (format === "scenes" || format === "single") {
     return { file, metadata };
   }
   return null;
@@ -131,7 +132,7 @@ export class StoreVaultSync {
           resolve();
         }, this.settlingTime);
       });
-    } catch (error) {
+    } catch {
       waitingForSync.set(false);
       return this.fallbackWait();
     }
@@ -150,9 +151,7 @@ export class StoreVaultSync {
     try {
       await this.waitForSync();
       await this.discoverDrafts();
-
-      this.isInitializing = false;
-    } catch (error) {
+    } finally {
       this.isInitializing = false;
     }
   }
@@ -378,54 +377,32 @@ export class StoreVaultSync {
   private async draftFor(
     fileWithMetadata: FileWithMetadata,
   ): Promise<{ draft: Project; dirty: boolean } | null> {
-    if (!fileWithMetadata.metadata.frontmatter) {
+    const fm = fileWithMetadata.metadata.frontmatter;
+    if (!fm) {
       return null;
     }
-    const longformEntry = fileWithMetadata.metadata.frontmatter["longform"];
-    if (!longformEntry) {
+    const format = fm["longform"];
+    if (format !== "scenes" && format !== "single") {
       return null;
     }
-    const format = longformEntry["format"];
+
     const vaultPath = fileWithMetadata.file.path;
-    let title = longformEntry["title"];
-    let titleInFrontmatter = true;
-    if (!title) {
-      titleInFrontmatter = false;
-      title = fileNameFromPath(vaultPath);
-    }
-    const workflow = longformEntry["workflow"] ?? null;
+    const rawTitle = fm["title"];
+    const titleInFrontmatter = typeof rawTitle === "string" && rawTitle.trim().length > 0;
+    const title = titleInFrontmatter ? String(rawTitle) : fileNameFromPath(vaultPath);
+    const workflow = typeof fm["workflow"] === "string" ? (fm["workflow"] as string) : null;
+    const ebook = readEbookMetadata(fm);
 
     if (format === "scenes") {
-      let rawScenes: any = longformEntry["scenes"] ?? [];
-
-      if (rawScenes.length === 0) {
-        // fallback for issue where the metadata cache seems to fail to recognize yaml arrays.
-        // in this case, it reports the array as empty when it's not,
-        // so we will parse out the yaml directly from the file contents, just in case.
-        // discord discussion: https://discord.com/channels/686053708261228577/840286264964022302/994589562082951219
-
-        // 2023-01-03: Confirmed this issue is still present; using new processFrontMatter function
-        // seems to read correctly, though!
-
-        let fm = null;
-        try {
-          await this.app.fileManager.processFrontMatter(fileWithMetadata.file, (_fm) => {
-            fm = _fm;
-          });
-        } catch (error) {
-          console.error("[Longform] error manually loading frontmatter:", error);
-        }
-
-        if (fm) {
-          rawScenes = fm["longform"]["scenes"];
-        }
-      }
-
-      // Convert to indented scenes
-      const scenes = arraysToIndentedScenes(rawScenes);
-      const sceneFolder = longformEntry["sceneFolder"] ?? "/";
-      const sceneTemplate = longformEntry["sceneTemplate"] ?? null;
-      const ignoredFiles: string[] = longformEntry["ignoredFiles"] ?? [];
+      const scenes = decodeFlatScenes(fm["scenes"]);
+      const sceneFolder = typeof fm["sceneFolder"] === "string" ? fm["sceneFolder"] : "/";
+      const sceneTemplate =
+        typeof fm["sceneTemplate"] === "string" && fm["sceneTemplate"].length > 0
+          ? fm["sceneTemplate"]
+          : null;
+      const ignoredFiles: string[] = Array.isArray(fm["ignoredFiles"])
+        ? fm["ignoredFiles"].filter((v: unknown): v is string => typeof v === "string")
+        : [];
       const normalizedSceneFolder = normalizePath(
         `${fileWithMetadata.file.parent.path}/${sceneFolder}`,
       );
@@ -438,15 +415,12 @@ export class StoreVaultSync {
           .filter((maybeName) => maybeName !== null && maybeName !== undefined) as string[];
       }
 
-      // Filter removed scenes
       const knownScenes = scenes.filter(({ title }) => filenamesInSceneFolder.contains(title));
-
       const dirty = knownScenes.length !== scenes.length;
 
       const sceneTitles = new Set(scenes.map((s) => s.title));
       const newScenes = filenamesInSceneFolder.filter((s) => !sceneTitles.has(s));
 
-      // ignore all new scenes that are known-to-ignore per ignoredFiles
       const ignoredRegexes = ignoredFiles.filter((n) => n).map((p) => ignoredPatternToRegex(p));
       const unknownFiles = newScenes.filter(
         (s) => ignoredRegexes.find((r) => r.test(s)) === undefined,
@@ -464,26 +438,23 @@ export class StoreVaultSync {
           unknownFiles,
           sceneTemplate,
           workflow,
+          ebook,
         },
         dirty,
       };
-    } else if (format === "single") {
-      return {
-        draft: {
-          format: "single",
-          title,
-          titleInFrontmatter,
-          vaultPath,
-          workflow,
-        },
-        dirty: false,
-      };
-    } else {
-      console.log(
-        `[Longform] Error loading draft at ${fileWithMetadata.file.path}: invalid longform.format. Ignoring.`,
-      );
-      return null;
     }
+
+    return {
+      draft: {
+        format: "single",
+        title,
+        titleInFrontmatter,
+        vaultPath,
+        workflow,
+        ebook,
+      },
+      dirty: false,
+    };
   }
 
   private async writeDraftFrontmatter(draft: Project) {
@@ -542,6 +513,49 @@ function writeSceneNumbers(app: App, file: TFile, index: number, numbering: numb
     fm["longform-order"] = index;
     fm["longform-number"] = formatSceneNumber(numbering);
   });
+}
+
+type EbookStringKey =
+  | "author"
+  | "language"
+  | "identifier"
+  | "description"
+  | "cover"
+  | "publisher"
+  | "pubdate"
+  | "rights"
+  | "series";
+
+const EBOOK_STRING_KEYS: EbookStringKey[] = [
+  "author",
+  "language",
+  "identifier",
+  "description",
+  "cover",
+  "publisher",
+  "pubdate",
+  "rights",
+  "series",
+];
+
+function readEbookMetadata(fm: Record<string, any>): EbookMetadata {
+  const ebook: EbookMetadata = {};
+  for (const key of EBOOK_STRING_KEYS) {
+    const value = fm[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      ebook[key] = value;
+    }
+  }
+  if (Array.isArray(fm["subjects"])) {
+    const subjects = fm["subjects"].filter(
+      (v: unknown): v is string => typeof v === "string" && v.length > 0,
+    );
+    if (subjects.length > 0) ebook.subjects = subjects;
+  }
+  if (typeof fm["seriesIndex"] === "number" && Number.isFinite(fm["seriesIndex"])) {
+    ebook.seriesIndex = fm["seriesIndex"];
+  }
+  return ebook;
 }
 
 const ESCAPED_CHARACTERS = new Set("/&$^+.()=!|[]{},".split(""));

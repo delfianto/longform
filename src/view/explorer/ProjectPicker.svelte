@@ -77,9 +77,9 @@
       {/if}
     </div>
     {#if $selectedDraft}
-      <div class="current-draft-path" onclick={(e) => onDraftClick(e)}>
+      <button type="button" class="current-draft-path" onclick={(e) => onDraftClick(e)}>
         {$selectedDraft.vaultPath}
-      </div>
+      </button>
     {/if}
   {:else}
     <p>
@@ -124,6 +124,12 @@
     color: var(--text-faint);
     font-size: var(--font-smallest);
     padding: 0 0 var(--size-4-1) var(--size-4-3);
+    background: none;
+    border: none;
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
   }
 
   .current-draft-path:hover {

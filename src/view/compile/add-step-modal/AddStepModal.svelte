@@ -41,7 +41,7 @@
   <h2>Built-in Steps</h2>
   <div class="longform-steps-grid">
     {#each BUILTIN_STEPS as step}
-      <div class="longform-compile-step" onclick={() => onStepClick(step)}>
+      <button type="button" class="longform-compile-step" onclick={() => onStepClick(step)}>
         <h3>{step.description.name}</h3>
         <div class="longform-step-pill-container">
           {#each step.description.availableKinds as kind}
@@ -51,14 +51,14 @@
           {/each}
           <p>{step.description.description}</p>
         </div>
-      </div>
+      </button>
     {/each}
   </div>
   {#if $userScriptSteps}
     <h2>User Script Steps</h2>
     <div class="longform-steps-grid">
       {#each $userScriptSteps as step}
-        <div class="longform-compile-step" onclick={() => onStepClick(step)}>
+        <button type="button" class="longform-compile-step" onclick={() => onStepClick(step)}>
           <h3>{step.description.name}</h3>
           <div class="longform-step-pill-container">
             {#each step.description.availableKinds as kind}
@@ -69,7 +69,7 @@
             {/each}
             <p>{step.description.description}</p>
           </div>
-        </div>
+        </button>
       {/each}
     </div>
   {/if}
@@ -91,6 +91,10 @@
     border: var(--size-2-1) solid var(--background-modifier-border);
     border-radius: var(--size-4-4);
     padding: var(--size-4-2);
+    text-align: left;
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
   }
 
   .longform-compile-step:hover {

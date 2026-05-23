@@ -84,7 +84,7 @@
                   id={step.id + "-" + option.id}
                   placeholder="key: value"
                   bind:value={step.optionValues[option.id]}
-                />
+                ></textarea>
               {:else}
                 <div class="longform-compile-step-checkbox-container">
                   <input

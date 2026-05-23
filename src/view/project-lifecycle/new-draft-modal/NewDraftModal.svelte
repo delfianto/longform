@@ -73,7 +73,7 @@
       }}
     />
   </div>
-  <div bind:this={checkboxContainer} hidden={!showSceneToggle} />
+  <div bind:this={checkboxContainer} hidden={!showSceneToggle}></div>
   <div>
     {#if valid && $selectedDraft}
       <p>

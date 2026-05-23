@@ -24,7 +24,7 @@
     style="min-height: {minHeight}; max-height: {maxHeight}">{value +
       "\n"}</pre>
 
-  <textarea bind:value {...rest} />
+  <textarea bind:value {...rest}></textarea>
 </div>
 
 <style>

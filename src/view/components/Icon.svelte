@@ -9,7 +9,7 @@
 </script>
 
 {#if iconName.length > 0}
-  <span use:icon={iconName} />
+  <span use:icon={iconName}></span>
 {/if}
 
 <style>

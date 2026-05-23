@@ -340,6 +340,7 @@
           class="scene-container{item.hidden ? ' hidden' : ''}{item.collapsible ? ' collapsible' : ''}"
           style="padding-left: calc(({item.indent} * var(--longform-explorer-indent-size)) + 6px {item.collapsible ? '' : '+ var(--size-4-4)'});"
           class:selected={$activeFile && $activeFile.path === item.path}
+          role="listitem"
           oncontextmenu={(e) => { e.preventDefault(); onContext(e); }}
           data-scene-path={item.path}
           data-scene-indent={item.indent}
@@ -354,9 +355,14 @@
           {/if}
           <div
             style="width: 100%;"
+            role="button"
+            tabindex="0"
             data-scene-path={item.path}
             onclick={(e) =>
               typeof item.path === "string" ? onItemClick(item, e) : {}}
+            onkeydown={(e) => {
+              if (e.key === "Enter" && typeof item.path === "string") onItemClick(item, e as unknown as MouseEvent);
+            }}
           >
             {#if $pluginSettings.numberScenes}
               <span class="longform-scene-number">{numberLabel(item)}</span>
@@ -366,6 +372,7 @@
               data-item-path={item.path}
               data-item-name={item.name}
               style="display: inline;"
+              role={item.path === editingPath ? "textbox" : undefined}
               onkeydown={item.path === editingPath ? onKeydown : null}
               onblur={item.path === editingPath ? onBlur : null}
               contenteditable={item.path === editingPath}

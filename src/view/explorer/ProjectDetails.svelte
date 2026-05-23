@@ -174,13 +174,14 @@
 <div>
   {#if $selectedDraft}
     <div class="longform-project-section">
-      <div
+      <button
+        type="button"
         class="longform-project-details-section-header"
         onclick={() => { showMetdata = !showMetdata; }}
       >
         <Disclosure collapsed={!showMetdata} />
         <h4>Project Metadata</h4>
-      </div>
+      </button>
       {#if showMetdata}
         <div>
           <label for="longform-project-title">Title</label>
@@ -230,13 +231,14 @@
       goalPercentage >= 43 ? "var(--text-on-accent)" : "var(--text-accent)"
     }`}
   >
-    <div
+    <button
+      type="button"
       class="longform-project-details-section-header"
       onclick={() => { showWordCount = !showWordCount; }}
     >
       <Disclosure collapsed={!showWordCount} />
       <h4>Word Count</h4>
-    </div>
+    </button>
     {#if showWordCount}
       <div>
         {#if showProgress}
@@ -245,7 +247,7 @@
             data-label={goalDescription}
             title={goalDescription}
           >
-            <div class="value" style={`width:${goalPercentage}%;`} />
+            <div class="value" style={`width:${goalPercentage}%;`}></div>
           </div>
         {/if}
         {#if sceneCount}
@@ -269,13 +271,14 @@
   </div>
   <div class="longform-project-section">
     <div class="drafts-title-container">
-      <div
+      <button
+        type="button"
         class="longform-project-details-section-header"
         onclick={() => { showDrafts = !showDrafts; }}
       >
         <Disclosure collapsed={!showDrafts} />
         <h4>Drafts</h4>
-      </div>
+      </button>
       <button type="button" onclick={onNewDraft}>
         <Icon iconName="plus-with-circle" />
       </button>
@@ -298,11 +301,6 @@
     padding-top: var(--size-4-4);
   }
 
-  .longform-project-section .right-triangle {
-    margin-left: var(--size-4-1);
-    margin-right: var(--size-4-2);
-  }
-
   .longform-project-details-section-header {
     display: flex;
     flex-direction: row;
@@ -310,6 +308,11 @@
     align-items: center;
     cursor: pointer;
     margin-left: calc(var(--size-4-6) * -1);
+    background: none;
+    border: none;
+    padding: 0;
+    width: 100%;
+    text-align: left;
   }
 
   h4 {

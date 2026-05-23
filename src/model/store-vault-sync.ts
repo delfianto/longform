@@ -9,12 +9,13 @@ import {
 import { cloneDeep, isEqual } from "lodash";
 import { get, type Unsubscriber } from "svelte/store";
 
-import type { EbookMetadata, Project } from "./types";
+import { EBOOK_STRING_KEYS, type EbookMetadata, type Project } from "./types";
 import {
   projects as projectsStore,
   pluginSettings,
-  waitingForSync,
   selectedProjectPath,
+  updateScenesProject,
+  waitingForSync,
 } from "./stores";
 import {
   decodeFlatScenes,
@@ -22,7 +23,7 @@ import {
   numberScenes,
   setProjectFrontmatter,
 } from "src/model/project-utils";
-import { fileNameFromPath } from "./note-utils";
+import { fileNameFromPath } from "src/lib/path";
 import { findScene, sceneFolderPath, scenePath } from "./scene-navigation";
 
 type FileWithMetadata = {
@@ -232,18 +233,11 @@ export class StoreVaultSync {
       return targetPath === scenePath && !p.scenes.map((s) => s.title).contains(file.basename);
     });
     if (memberProject) {
-      projectsStore.update((all) =>
-        all.map((p) => {
-          if (
-            p.vaultPath === memberProject.vaultPath &&
-            p.format === "scenes" &&
-            !p.unknownFiles.contains(file.basename)
-          ) {
-            p.unknownFiles.push(file.basename);
-          }
-          return p;
-        }),
-      );
+      updateScenesProject(memberProject.vaultPath, (p) => {
+        if (!p.unknownFiles.contains(file.basename)) {
+          p.unknownFiles.push(file.basename);
+        }
+      });
     }
   }
 
@@ -261,27 +255,17 @@ export class StoreVaultSync {
     } else {
       const found = findScene(file.path, ps);
       if (found) {
-        projectsStore.update((all) =>
-          all.map((p) => {
-            if (p.vaultPath === found.project.vaultPath && p.format === "scenes") {
-              p.scenes.splice(found.index, 1);
-            }
-            return p;
-          }),
-        );
+        updateScenesProject(found.project.vaultPath, (p) => {
+          p.scenes.splice(found.index, 1);
+        });
       } else {
         const ownerProject = ps.find(
           (p) => p.format === "scenes" && p.unknownFiles.contains(file.basename),
         );
         if (ownerProject) {
-          projectsStore.update((all) =>
-            all.map((p) => {
-              if (p.vaultPath === ownerProject.vaultPath && p.format === "scenes") {
-                p.unknownFiles = p.unknownFiles.filter((f) => f !== file.basename);
-              }
-              return p;
-            }),
-          );
+          updateScenesProject(ownerProject.vaultPath, (p) => {
+            p.unknownFiles = p.unknownFiles.filter((f) => f !== file.basename);
+          });
         }
       }
     }
@@ -311,29 +295,19 @@ export class StoreVaultSync {
 
       if (foundOld && oldParent === file.parent.path) {
         // in-place rename
-        projectsStore.update((all) =>
-          all.map((p) => {
-            if (p.vaultPath === foundOld.project.vaultPath && p.format === "scenes") {
-              p.scenes[foundOld.index].title = newTitle;
-            }
-            return p;
-          }),
-        );
+        updateScenesProject(foundOld.project.vaultPath, (p) => {
+          p.scenes[foundOld.index].title = newTitle;
+        });
       } else {
         // moved out of a project
         const oldProject = ps.find(
           (p) => p.format === "scenes" && sceneFolderPath(p, this.vault) === oldParent,
         );
         if (oldProject) {
-          projectsStore.update((all) =>
-            all.map((p) => {
-              if (p.vaultPath === oldProject.vaultPath && p.format === "scenes") {
-                p.scenes = p.scenes.filter((s) => s.title !== file.basename);
-                p.unknownFiles = p.unknownFiles.filter((f) => f !== file.basename);
-              }
-              return p;
-            }),
-          );
+          updateScenesProject(oldProject.vaultPath, (p) => {
+            p.scenes = p.scenes.filter((s) => s.title !== file.basename);
+            p.unknownFiles = p.unknownFiles.filter((f) => f !== file.basename);
+          });
         }
 
         // moved into a project
@@ -341,14 +315,9 @@ export class StoreVaultSync {
           (p) => p.format === "scenes" && sceneFolderPath(p, this.vault) === file.parent.path,
         );
         if (newProject) {
-          projectsStore.update((all) =>
-            all.map((p) => {
-              if (p.vaultPath === newProject.vaultPath && p.format === "scenes") {
-                p.unknownFiles.push(file.basename);
-              }
-              return p;
-            }),
-          );
+          updateScenesProject(newProject.vaultPath, (p) => {
+            p.unknownFiles.push(file.basename);
+          });
         }
       }
     }
@@ -511,29 +480,6 @@ function writeSceneNumbers(app: App, file: TFile, index: number, numbering: numb
     fm["longform-number"] = formatSceneNumber(numbering);
   });
 }
-
-type EbookStringKey =
-  | "author"
-  | "language"
-  | "identifier"
-  | "description"
-  | "cover"
-  | "publisher"
-  | "pubdate"
-  | "rights"
-  | "series";
-
-const EBOOK_STRING_KEYS: EbookStringKey[] = [
-  "author",
-  "language",
-  "identifier",
-  "description",
-  "cover",
-  "publisher",
-  "pubdate",
-  "rights",
-  "series",
-];
 
 function readEbookMetadata(fm: Record<string, any>): EbookMetadata {
   const ebook: EbookMetadata = {};

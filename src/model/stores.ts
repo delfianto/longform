@@ -1,7 +1,12 @@
 import { derived, writable } from "svelte/store";
 import { sortBy } from "lodash";
 
-import type { ProjectWordCounts, Project, LongformPluginSettings } from "./types";
+import type {
+  LongformPluginSettings,
+  MultipleSceneProject,
+  Project,
+  ProjectWordCounts,
+} from "./types";
 import type { Workflow, CompileStep } from "src/compile/steps/abstract-compile-step";
 
 // WRITEABLE STORES
@@ -52,3 +57,34 @@ export const currentWorkflow = derived(
     return null;
   },
 );
+
+// STORE HELPERS
+
+/**
+ * Find a project by vault path and apply `mutator` to it in place.
+ * No-op if no project matches `vaultPath`.
+ */
+export function updateProject(vaultPath: string, mutator: (p: Project) => void): void {
+  projects.update((all) =>
+    all.map((p) => {
+      if (p.vaultPath === vaultPath) mutator(p);
+      return p;
+    }),
+  );
+}
+
+/**
+ * Like {@link updateProject}, but narrows to multi-scene projects only.
+ * No-op if the matched project isn't `format: "scenes"`.
+ */
+export function updateScenesProject(
+  vaultPath: string,
+  mutator: (p: MultipleSceneProject) => void,
+): void {
+  projects.update((all) =>
+    all.map((p) => {
+      if (p.vaultPath === vaultPath && p.format === "scenes") mutator(p);
+      return p;
+    }),
+  );
+}

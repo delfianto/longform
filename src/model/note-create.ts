@@ -1,11 +1,4 @@
-import { last, sum } from "lodash";
 import type { App, TFile } from "obsidian";
-
-import type { Project, ProjectWordCounts } from "./types";
-
-export function fileNameFromPath(path: string): string {
-  return last(path.split("/")).split(".md")[0];
-}
 
 /**
  * Creates a note at `path` with a given `template` if a templating plugin is enabled.
@@ -119,31 +112,4 @@ async function createWithTemplates(app: App, templatePath: string): Promise<stri
   contents = contents.replace(`{{time}}`, window.moment().format(timeFormat));
 
   return contents;
-}
-
-export type SceneWordStats = {
-  scene: number;
-  project: number;
-};
-
-export function statsForScene(
-  activeFile: TFile | null,
-  project: Project,
-  counts: ProjectWordCounts,
-): SceneWordStats | null {
-  const count = counts[project.vaultPath];
-  if (!count) {
-    return null;
-  }
-
-  const projectTotal =
-    typeof count === "number" ? count : typeof count === "object" ? sum(Object.values(count)) : 0;
-
-  if (project.format === "single") {
-    return { scene: projectTotal, project: projectTotal };
-  }
-
-  const sceneName = activeFile ? fileNameFromPath(activeFile.path) : null;
-  const sceneTotal = sceneName && typeof count !== "number" ? count[sceneName] : 0;
-  return { scene: sceneTotal, project: projectTotal };
 }

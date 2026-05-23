@@ -1,22 +1,16 @@
 import { App, TFile, Vault } from "obsidian";
 import { get, type Writable } from "svelte/store";
 
-import type { EbookMetadata, Project, IndentedScene, MultipleSceneProject } from "./types";
+import {
+  EBOOK_STRING_KEYS,
+  type EbookMetadata,
+  type IndentedScene,
+  type MultipleSceneProject,
+  type Project,
+} from "./types";
 import { scenePath } from "src/model/scene-navigation";
-import { createNoteWithPotentialTemplate } from "./note-utils";
+import { createNoteWithPotentialTemplate } from "./note-create";
 import { pluginSettings } from "./stores";
-
-const EBOOK_STRING_FIELDS = [
-  "author",
-  "language",
-  "identifier",
-  "description",
-  "cover",
-  "publisher",
-  "pubdate",
-  "rights",
-  "series",
-] as const satisfies readonly (keyof EbookMetadata)[];
 
 type SceneInsertionLocation = {
   at: "before" | "after" | "end";
@@ -129,7 +123,7 @@ export function setProjectFrontmatter(obj: Record<string, any>, project: Project
 
 function writeEbookMetadata(obj: Record<string, any>, ebook: EbookMetadata | undefined) {
   const e = ebook ?? {};
-  for (const key of EBOOK_STRING_FIELDS) {
+  for (const key of EBOOK_STRING_KEYS) {
     const value = e[key];
     if (typeof value === "string" && value.trim().length > 0) {
       obj[key] = value;

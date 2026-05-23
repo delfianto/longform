@@ -20,6 +20,21 @@ export type EbookMetadata = {
   seriesIndex?: number;
 };
 
+/** Ebook metadata fields that are scalars (string-valued). Excludes `subjects` (array) and `seriesIndex` (number). */
+export const EBOOK_STRING_KEYS = [
+  "author",
+  "language",
+  "identifier",
+  "description",
+  "cover",
+  "publisher",
+  "pubdate",
+  "rights",
+  "series",
+] as const satisfies readonly (keyof EbookMetadata)[];
+
+export type EbookStringKey = (typeof EBOOK_STRING_KEYS)[number];
+
 export type MultipleSceneProject = {
   format: "scenes";
   title: string;

@@ -2,7 +2,7 @@ import type { TFile } from "obsidian";
 import { derived, writable } from "svelte/store";
 
 import { projectWordCounts, selectedProject } from "src/model/stores";
-import { type SceneWordStats, statsForScene } from "src/model/note-utils";
+import { type SceneWordStats, statsForScene } from "src/model/scene-stats";
 import type { Project, ProjectWordCounts } from "src/model/types";
 
 // Writable stores

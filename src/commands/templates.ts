@@ -5,7 +5,7 @@ import { projects, selectedProjectPath } from "src/model/stores";
 import { get } from "svelte/store";
 import type { CommandBuilder } from "./types";
 import { insertProjectFrontmatter } from "src/model/project-utils";
-import { fileNameFromPath } from "src/model/note-utils";
+import { fileNameFromPath } from "src/lib/path";
 import type { Project, MultipleSceneProject, SingleSceneProject } from "src/model/types";
 
 const callbackForFormat = (

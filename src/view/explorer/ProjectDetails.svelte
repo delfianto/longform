@@ -1,11 +1,14 @@
 <script lang="ts">
   import { normalizePath } from "obsidian";
   import { projectFolderPath } from "src/model/scene-navigation";
-  import { projects } from "src/model/stores";
   import {
+    projects,
     selectedProject,
     selectedProjectPath,
+    updateProject,
+    updateScenesProject,
   } from "src/model/stores";
+  import type { EbookStringKey } from "src/model/types";
   import { onMount } from "svelte";
   import Disclosure from "../components/Disclosure.svelte";
   import { FileSuggest } from "../settings/file-suggest";
@@ -65,17 +68,9 @@
     const path = normalizePath(`${root}/${newFolder}`);
     const exists = await app.vault.adapter.exists(path);
     if (exists) {
-      projects.update((all) =>
-        all.map((p) => {
-          if (
-            p.vaultPath === $selectedProjectPath &&
-            p.format === "scenes"
-          ) {
-            p.sceneFolder = newFolder;
-          }
-          return p;
-        })
-      );
+      updateScenesProject($selectedProjectPath, (p) => {
+        p.sceneFolder = newFolder;
+      });
     }
   }
 
@@ -98,45 +93,21 @@
     }
 
     if (exists) {
-      projects.update((all) =>
-        all.map((p) => {
-          if (
-            p.vaultPath === $selectedProjectPath &&
-            p.format === "scenes"
-          ) {
-            p.sceneTemplate = newTemplate;
-          }
-          return p;
-        })
-      );
+      updateScenesProject($selectedProjectPath, (p) => {
+        p.sceneTemplate = newTemplate;
+      });
     }
   }
 
   // ---- eBook metadata helpers ----
 
-  type EbookStringKey =
-    | "author"
-    | "language"
-    | "identifier"
-    | "description"
-    | "cover"
-    | "publisher"
-    | "pubdate"
-    | "rights"
-    | "series";
-
   function updateEbook(mutator: (e: Record<string, any>) => void) {
     if (!$selectedProjectPath) return;
-    projects.update((all) =>
-      all.map((p) => {
-        if (p.vaultPath === $selectedProjectPath) {
-          const next = { ...p.ebook };
-          mutator(next);
-          p.ebook = next;
-        }
-        return p;
-      })
-    );
+    updateProject($selectedProjectPath, (p) => {
+      const next = { ...p.ebook };
+      mutator(next);
+      p.ebook = next;
+    });
   }
 
   function ebookStringChanged(field: EbookStringKey) {

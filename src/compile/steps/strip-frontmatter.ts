@@ -1,9 +1,4 @@
-import type {
-  CompileContext,
-  CompileInput,
-  CompileManuscriptInput,
-  CompileSceneInput,
-} from "..";
+import type { CompileContext, CompileInput, CompileManuscriptInput, CompileSceneInput } from "..";
 import { CompileStepKind, makeBuiltinStep } from "./abstract-compile-step";
 
 const FRONTMATTER_REGEX = /^---\n(?<yaml>(?:.*?\n)*?)---/m;
@@ -16,8 +11,7 @@ export const StripFrontmatterStep = makeBuiltinStep({
   id: "strip-frontmatter",
   description: {
     name: "Strip Frontmatter",
-    description:
-      "Removes the YAML frontmatter section from the scene or manuscript.",
+    description: "Removes the YAML frontmatter section from the scene or manuscript.",
     availableKinds: [CompileStepKind.Scene, CompileStepKind.Manuscript],
     options: [],
   },

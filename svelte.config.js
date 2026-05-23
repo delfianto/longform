@@ -1,7 +1,5 @@
-/* eslint-disable */
-const preprocess = require("svelte-preprocess");
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
-module.exports = {
-  emitCss: false,
-  preprocess: preprocess(),
+export default {
+  preprocess: vitePreprocess(),
 };

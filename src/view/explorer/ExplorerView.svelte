@@ -18,7 +18,7 @@
     _migrate();
   }
 
-  $: {
+  $effect(() => {
     if (
       $selectedDraft &&
       $selectedDraft.format === "single" &&
@@ -26,7 +26,7 @@
     ) {
       $selectedTab = "Project";
     }
-  }
+  });
 </script>
 
 {#if $needsMigration}
@@ -34,7 +34,7 @@
     <p>
       Longform has been upgraded and requires a migration to a new format.
       Deprecated index files will be deleted, and some scene files may move.
-      It’s recommended to back up your vault before migrating.
+      It's recommended to back up your vault before migrating.
     </p>
     <p>
       You can view the docs and an explanation of what this migration does <a
@@ -42,7 +42,7 @@
         >here</a
       >.
     </p>
-    <button class="longform-migrate-button" type="button" on:click={doMigration}
+    <button class="longform-migrate-button" type="button" onclick={doMigration}
       >Migrate</button
     >
   </div>
@@ -125,7 +125,7 @@
     background: var(--background-primary);
     padding: var(--size-4-1) var(--size-4-2);
   }
-  
+
   .tab-panel-container.disconnected {
     background: none;
     padding: 0;

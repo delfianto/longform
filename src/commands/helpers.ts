@@ -1,20 +1,14 @@
-import {
-  FuzzySuggestModal,
-  Keymap,
-  type App,
-  type Instruction,
-  type PaneType,
-} from "obsidian";
+import { FuzzySuggestModal, Keymap, type App, type Instruction, type PaneType } from "obsidian";
 
 declare module "obsidian" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- cannot declare otherwise
-	interface FuzzySuggestModal<T> {
-		chooser?: {
-			useSelectedItem: (evt: KeyboardEvent) => boolean;
-			moveDown: (count: number) => void;
-			moveUp: (count: number) => void;
-		};
-	}
+  interface FuzzySuggestModal<T> {
+    chooser?: {
+      useSelectedItem: (evt: KeyboardEvent) => boolean;
+      moveDown: (count: number) => void;
+      moveUp: (count: number) => void;
+    };
+  }
 }
 
 export class JumpModal<T> extends FuzzySuggestModal<string> {
@@ -25,7 +19,7 @@ export class JumpModal<T> extends FuzzySuggestModal<string> {
     app: App,
     items: Map<string, T>,
     instructions: Instruction[] = [],
-    onSelect: (value: T, modEvent: boolean | PaneType) => void
+    onSelect: (value: T, modEvent: boolean | PaneType) => void,
   ) {
     super(app);
 
@@ -33,9 +27,7 @@ export class JumpModal<T> extends FuzzySuggestModal<string> {
     this.onSelect = onSelect;
 
     this.scope.register(["Meta"], "Enter", (evt) => {
-      const result = this.containerEl.getElementsByClassName(
-        "suggestion-item is-selected"
-      );
+      const result = this.containerEl.getElementsByClassName("suggestion-item is-selected");
       if (result.length > 0) {
         const selected = result[0].innerHTML;
         this.onChooseItem(selected, evt);
@@ -51,13 +43,16 @@ export class JumpModal<T> extends FuzzySuggestModal<string> {
     this.scope.register(["Shift"], "Tab", (): void => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
     });
-    instructions.concat([{
-      command: "↹ ",
-      purpose: "Down",
-    },{
-      command: "↹ ",
-      purpose: "Down",
-    }])
+    instructions.concat([
+      {
+        command: "↹ ",
+        purpose: "Down",
+      },
+      {
+        command: "↹ ",
+        purpose: "Down",
+      },
+    ]);
 
     this.setInstructions(instructions);
   }

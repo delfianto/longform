@@ -26,7 +26,7 @@ import { JumpModal } from "./helpers";
 const checkForLocation = (
   checking: boolean,
   location: SceneNavigationLocation,
-  app: App
+  app: App,
 ): boolean | void => {
   const path = get(activeFile).path;
   const drafts = get(draftsStore);
@@ -47,7 +47,7 @@ export const previousScene: CommandBuilder = (plugin) => ({
         position: "previous",
         maintainIndent: false,
       },
-      plugin.app
+      plugin.app,
     ),
 });
 
@@ -61,7 +61,7 @@ export const previousSceneAtIndent: CommandBuilder = (plugin) => ({
         position: "previous",
         maintainIndent: true,
       },
-      plugin.app
+      plugin.app,
     ),
 });
 
@@ -75,7 +75,7 @@ export const nextScene: CommandBuilder = (plugin) => ({
         position: "next",
         maintainIndent: false,
       },
-      plugin.app
+      plugin.app,
     ),
 });
 
@@ -89,7 +89,7 @@ export const nextSceneAtIndent: CommandBuilder = (plugin) => ({
         position: "next",
         maintainIndent: true,
       },
-      plugin.app
+      plugin.app,
     ),
 });
 
@@ -124,9 +124,7 @@ export const focusCurrentDraft: CommandBuilder = () => ({
 
 const showLeaf = (plugin: LongformPlugin) => {
   plugin.initLeaf();
-  const leaf = plugin.app.workspace
-    .getLeavesOfType(VIEW_TYPE_LONGFORM_EXPLORER)
-    .first();
+  const leaf = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_LONGFORM_EXPLORER).first();
   if (leaf) {
     plugin.app.workspace.revealLeaf(leaf);
   }
@@ -180,15 +178,13 @@ export const jumpToProject: CommandBuilder = (plugin) => ({
                 selectedDraftVaultPath.set(draft.vaultPath);
                 showLeaf(plugin);
               }
-            }
+            },
           ).open();
         }
       }
     };
 
-    const projects: Map<string, Draft[]> = new Map(
-      Object.entries(get(projectsStore))
-    );
+    const projects: Map<string, Draft[]> = new Map(Object.entries(get(projectsStore)));
 
     new JumpModal(
       plugin.app,
@@ -207,7 +203,7 @@ export const jumpToProject: CommandBuilder = (plugin) => ({
           purpose: "to dismiss",
         },
       ],
-      projectCallback
+      projectCallback,
     ).open();
   },
 });
@@ -217,11 +213,7 @@ export const jumpToScene: CommandBuilder = (plugin) => ({
   name: "Jump to scene in current project",
   checkCallback(checking) {
     const currentDraft = get(selectedDraft);
-    if (
-      !currentDraft ||
-      currentDraft.format === "single" ||
-      currentDraft.scenes.length === 0
-    ) {
+    if (!currentDraft || currentDraft.format === "single" || currentDraft.scenes.length === 0) {
       return false;
     }
     if (checking) {
@@ -259,7 +251,7 @@ export const jumpToScene: CommandBuilder = (plugin) => ({
         if (path) {
           plugin.app.workspace.openLinkText(path, "/", modEvent);
         }
-      }
+      },
     ).open();
   },
 });
@@ -280,14 +272,9 @@ export const revealProjectFolder: CommandBuilder = (plugin) => ({
     // NOTE: This is private Obsidian API, and may fail or change at any time.
     try {
       const parent = plugin.app.vault.getAbstractFileByPath(path).parent;
-      (plugin.app as any).internalPlugins.plugins[
-        "file-explorer"
-      ].instance.revealInFolder(parent);
+      (plugin.app as any).internalPlugins.plugins["file-explorer"].instance.revealInFolder(parent);
     } catch (error) {
-      console.error(
-        "[Longform] Error calling file-explorer.revealInFolder:",
-        error
-      );
+      console.error("[Longform] Error calling file-explorer.revealInFolder:", error);
     }
   },
 });

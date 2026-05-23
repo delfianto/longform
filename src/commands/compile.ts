@@ -2,18 +2,8 @@ import { get } from "svelte/store";
 import { Notice } from "obsidian";
 
 import type { CommandBuilder } from "./types";
-import {
-  currentWorkflow,
-  projects,
-  selectedDraft,
-  workflows,
-} from "src/model/stores";
-import {
-  WorkflowError,
-  calculateWorkflow,
-  compile,
-  type CompileStatus,
-} from "src/compile";
+import { currentWorkflow, projects, selectedDraft, workflows } from "src/model/stores";
+import { WorkflowError, calculateWorkflow, compile, type CompileStatus } from "src/compile";
 import { JumpModal } from "./helpers";
 import { draftTitle } from "src/model/draft-utils";
 import type { Draft } from "src/model/types";
@@ -31,10 +21,7 @@ export const compileCurrent: CommandBuilder = (plugin) => ({
       return;
     }
 
-    const [validation, calculatedKinds] = calculateWorkflow(
-      workflow,
-      draft.format === "scenes"
-    );
+    const [validation, calculatedKinds] = calculateWorkflow(workflow, draft.format === "scenes");
     if (validation.error !== WorkflowError.Valid) {
       new Notice(validation.error);
       return;
@@ -46,13 +33,7 @@ export const compileCurrent: CommandBuilder = (plugin) => ({
       }
     }
 
-    compile(
-      plugin.app,
-      draft,
-      workflow,
-      calculatedKinds,
-      onCompileStatusChange
-    );
+    compile(plugin.app, draft, workflow, calculatedKinds, onCompileStatusChange);
   },
 });
 
@@ -144,7 +125,7 @@ export const compileSelection: CommandBuilder = (plugin) => ({
                 // Compile
                 const [validation, calculatedKinds] = calculateWorkflow(
                   workflow,
-                  draft.format === "scenes"
+                  draft.format === "scenes",
                 );
                 if (validation.error !== WorkflowError.Valid) {
                   new Notice(validation.error);
@@ -157,18 +138,12 @@ export const compileSelection: CommandBuilder = (plugin) => ({
                   }
                 }
 
-                compile(
-                  plugin.app,
-                  draft,
-                  workflow,
-                  calculatedKinds,
-                  onCompileStatusChange
-                );
-              }
+                compile(plugin.app, draft, workflow, calculatedKinds, onCompileStatusChange);
+              },
             ).open();
-          }
+          },
         ).open();
-      }
+      },
     ).open();
   },
 });

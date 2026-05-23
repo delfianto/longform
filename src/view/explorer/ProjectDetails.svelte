@@ -23,9 +23,9 @@
 
   const app = useApp();
 
-  let showMetdata = true;
-  let showWordCount = true;
-  let showDrafts = true;
+  let showMetdata = $state(true);
+  let showWordCount = $state(true);
+  let showDrafts = $state(true);
 
   function titleChanged(event: Event) {
     let newTitle = (event.target as any).value;
@@ -57,7 +57,7 @@
     });
   }
 
-  let sceneFolderInput: HTMLInputElement;
+  let sceneFolderInput: HTMLInputElement = $state(null);
   onMount(() => {
     if (sceneFolderInput && $selectedDraft.format === "scenes") {
       const projectPath = projectFolderPath($selectedDraft, app.vault);
@@ -89,7 +89,7 @@
     }
   }
 
-  let sceneTemplateInput: HTMLInputElement;
+  let sceneTemplateInput: HTMLInputElement = $state(null);
   onMount(() => {
     if (sceneTemplateInput && $selectedDraft.format === "scenes") {
       new FileSuggest(app, sceneTemplateInput);
@@ -122,35 +122,31 @@
     }
   }
 
-  let projectCount: number;
-  let draftCount: number | null;
-  let sceneCount: number | null;
-  $: {
+  let projectCount = $state(0);
+  let draftCount: number | null = $state(null);
+  let sceneCount: number | null = $state(null);
+
+  $effect(() => {
     if ($selectedDraftWordCountStatus) {
       const { scene, draft, project } = $selectedDraftWordCountStatus;
-
       projectCount = project;
       draftCount = $projects[$selectedDraft.title].length > 1 ? draft : null;
       sceneCount = $selectedDraft.format === "scenes" ? scene : null;
     }
-  }
+  });
 
-  let showProgress = false;
-  $: {
+  let showProgress = $state(false);
+  $effect(() => {
     if ($activeFile && $selectedDraft) {
       const draft = draftForPath($activeFile.path, $drafts);
       showProgress = draft && draft.vaultPath === $selectedDraft.vaultPath;
     }
-  }
+  });
 
-  let goalPercentage: number;
-  let goalDescription: string;
-  $: {
-    goalPercentage = Math.ceil(Math.min($goalProgress, 1) * 100);
-    goalDescription = `${Math.round(
-      $goalProgress * $pluginSettings.sessionGoal
-    )}/${$pluginSettings.sessionGoal}`;
-  }
+  let goalPercentage = $derived(Math.ceil(Math.min($goalProgress, 1) * 100));
+  let goalDescription = $derived(
+    `${Math.round($goalProgress * $pluginSettings.sessionGoal)}/${$pluginSettings.sessionGoal}`
+  );
 
   function pluralize(
     count: number,
@@ -180,9 +176,7 @@
     <div class="longform-project-section">
       <div
         class="longform-project-details-section-header"
-        on:click={() => {
-          showMetdata = !showMetdata;
-        }}
+        onclick={() => { showMetdata = !showMetdata; }}
       >
         <Disclosure collapsed={!showMetdata} />
         <h4>Project Metadata</h4>
@@ -194,7 +188,7 @@
             id="longform-project-title"
             type="text"
             value={$selectedDraft.title}
-            on:change={titleChanged}
+            onchange={titleChanged}
           />
           {#if $selectedDraft.format === "scenes"}
             <label for="longform-project-scene-folder">Scene Folder</label>
@@ -203,10 +197,10 @@
               type="text"
               value={$selectedDraft.sceneFolder}
               bind:this={sceneFolderInput}
-              on:blur={sceneFolderChanged}
+              onblur={sceneFolderChanged}
             />
             <p class="longform-project-warning">
-              Changing scene folder does not move scenes. If you’re moving
+              Changing scene folder does not move scenes. If you're moving
               scenes to a new folder, move them in your vault first, then
               change this setting.
             </p>
@@ -217,7 +211,7 @@
               type="text"
               value={$selectedDraft.sceneTemplate}
               bind:this={sceneTemplateInput}
-              on:blur={sceneTemplateChanged}
+              onblur={sceneTemplateChanged}
             />
             <p class="longform-project-warning">
               This file will be used as a template when creating new scenes
@@ -238,9 +232,7 @@
   >
     <div
       class="longform-project-details-section-header"
-      on:click={() => {
-        showWordCount = !showWordCount;
-      }}
+      onclick={() => { showWordCount = !showWordCount; }}
     >
       <Disclosure collapsed={!showWordCount} />
       <h4>Word Count</h4>
@@ -279,14 +271,12 @@
     <div class="drafts-title-container">
       <div
         class="longform-project-details-section-header"
-        on:click={() => {
-          showDrafts = !showDrafts;
-        }}
+        onclick={() => { showDrafts = !showDrafts; }}
       >
         <Disclosure collapsed={!showDrafts} />
         <h4>Drafts</h4>
       </div>
-      <button type="button" on:click={onNewDraft}>
+      <button type="button" onclick={onNewDraft}>
         <Icon iconName="plus-with-circle" />
       </button>
     </div>
@@ -358,7 +348,6 @@
   .word-counts p strong {
     color: var(--text-normal);
   }
-
 
   .progress {
     height: var(--size-4-6);

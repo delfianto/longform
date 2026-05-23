@@ -1,16 +1,8 @@
 import { derived, writable } from "svelte/store";
 import { groupBy, sortBy } from "lodash";
 
-import type {
-  WordCountSession,
-  Draft,
-  LongformPluginSettings,
-  DraftWordCounts,
-} from "./types";
-import type {
-  Workflow,
-  CompileStep,
-} from "src/compile/steps/abstract-compile-step";
+import type { WordCountSession, Draft, LongformPluginSettings, DraftWordCounts } from "./types";
+import type { Workflow, CompileStep } from "src/compile/steps/abstract-compile-step";
 
 // WRITEABLE STORES
 
@@ -88,29 +80,26 @@ export const selectedDraft = derived(
       return null;
     }
     return $drafts.find((d) => d.vaultPath === $selectedDraftVaultPath) ?? null;
-  }
+  },
 );
 
 /**
  * Derived store of all drafts whose title matches that of the currently selected draft.
  */
-export const selectedProject = derived(
-  [projects, selectedDraft],
-  ([$projects, $selectedDraft]) => {
-    if (!$selectedDraft) {
-      return null;
-    }
-
-    return $projects[$selectedDraft.title] ?? null;
+export const selectedProject = derived([projects, selectedDraft], ([$projects, $selectedDraft]) => {
+  if (!$selectedDraft) {
+    return null;
   }
-);
+
+  return $projects[$selectedDraft.title] ?? null;
+});
 
 /**
  * Derived store that is true if the current project consists of multiple drafts.
  */
 export const selectedProjectHasMultipleDrafts = derived(
   [selectedProject],
-  ([$selectedProject]) => $selectedProject && $selectedProject.length > 1
+  ([$selectedProject]) => $selectedProject && $selectedProject.length > 1,
 );
 
 /**
@@ -129,5 +118,5 @@ export const currentWorkflow = derived(
       return null;
     }
     return null;
-  }
+  },
 );

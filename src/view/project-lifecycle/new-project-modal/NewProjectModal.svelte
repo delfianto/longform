@@ -2,23 +2,20 @@
   import { normalizePath, type TFolder } from "obsidian";
   import { getContext } from "svelte";
 
-  export let parent: TFolder;
-  let type: "scenes" | "single" = "scenes";
+  let { parent }: { parent: TFolder } = $props();
 
-  let title: string;
-  let valid = false;
-  let draftPath: string;
+  let type: "scenes" | "single" = $state("scenes");
+  let title: string = $state("");
+
   const regex = /[:\\\/]/;
-  $: {
-    valid = title && !regex.test(title);
-    if (valid) {
-      if (type === "scenes") {
-        draftPath = normalizePath(`${parent.path}/${title}/Index.md`);
-      } else {
-        draftPath = normalizePath(`${parent.path}/${title}.md`);
-      }
-    }
-  }
+  let valid = $derived(!!title && !regex.test(title));
+  let draftPath = $derived(
+    valid
+      ? type === "scenes"
+        ? normalizePath(`${parent.path}/${title}/Index.md`)
+        : normalizePath(`${parent.path}/${title}.md`)
+      : ""
+  );
 
   const createProject: (
     format: "scenes" | "single",
@@ -35,22 +32,18 @@
     <button
       type="button"
       class:selected={type === "scenes"}
-      on:click={() => {
-        type = "scenes";
-      }}>Multi</button
+      onclick={() => { type = "scenes"; }}>Multi</button
     >
     <button
       type="button"
       class:selected={type === "single"}
-      on:click={() => {
-        type = "single";
-      }}>Single</button
+      onclick={() => { type = "single"; }}>Single</button
     >
   </div>
   <div>
     {#if type === "scenes"}
       <p>
-        A <i>multi-scene project</i> is comprised of many ordered notes, called “scenes,”
+        A <i>multi-scene project</i> is comprised of many ordered notes, called "scenes,"
         that you can combine together into your manuscript. It also includes an index
         file, the YAML frontmatter of which is used by Longform to track your project.
       </p>
@@ -74,7 +67,7 @@
       type="text"
       placeholder="My Project Title"
       bind:value={title}
-      on:keydown={(e) => {
+      onkeydown={(e) => {
         if (e.key === "Enter") {
           onCreateProject();
         }
@@ -91,7 +84,7 @@
         <span class="target-path">{draftPath}</span>
       </p>
       <div class="project-creation-container">
-        <button type="button" on:click={onCreateProject}>Create</button>
+        <button type="button" onclick={onCreateProject}>Create</button>
       </div>
     {/if}
   </div>

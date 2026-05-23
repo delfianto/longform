@@ -32,7 +32,7 @@ type FileWithMetadata = {
 
 export function resolveIfLongformFile(
   metadataCache: MetadataCache,
-  file: TFile
+  file: TFile,
 ): FileWithMetadata | null {
   const metadata = metadataCache.getFileCache(file);
   if (metadata && metadata.frontmatter && metadata.frontmatter["longform"]) {
@@ -115,7 +115,7 @@ export class StoreVaultSync {
         const interval = setInterval(() => {
           if (!sync.syncing) {
             clearInterval(interval);
-            clearTimeout(timeout);  // Clear the timeout when sync completes
+            clearTimeout(timeout); // Clear the timeout when sync completes
             console.log("[Longform] Sync complete.");
             waitingForSync.set(false);
             resolve();
@@ -143,9 +143,7 @@ export class StoreVaultSync {
       return Promise.resolve();
     }
 
-    return new Promise(resolve =>
-      setTimeout(resolve, settings.fallbackWaitTime * 1000)
-    );
+    return new Promise((resolve) => setTimeout(resolve, settings.fallbackWaitTime * 1000));
   }
 
   async initialize() {
@@ -163,14 +161,10 @@ export class StoreVaultSync {
     const start = new Date().getTime();
 
     const files = this.vault.getMarkdownFiles();
-    const resolvedFiles = files.map((f) =>
-      resolveIfLongformFile(this.metadataCache, f)
-    );
+    const resolvedFiles = files.map((f) => resolveIfLongformFile(this.metadataCache, f));
     const draftFiles = resolvedFiles.filter((f) => f !== null);
 
-    const possibleDrafts = await Promise.all(
-      draftFiles.map((f) => this.draftFor(f))
-    );
+    const possibleDrafts = await Promise.all(draftFiles.map((f) => this.draftFor(f)));
     const drafts = possibleDrafts.filter((d) => d !== null);
 
     // Write dirty drafts back to their index files
@@ -186,18 +180,17 @@ export class StoreVaultSync {
       draftsToWrite.reduce((acc: Record<string, Draft>, d) => {
         acc[d.vaultPath] = d;
         return acc;
-      }, {})
+      }, {}),
     );
     draftsStore.set(draftsToWrite);
 
-    const message = `[Longform] Loaded and watching projects. Found ${draftFiles.length
-      } drafts in ${(new Date().getTime() - start) / 1000.0}s.`;
+    const message = `[Longform] Loaded and watching projects. Found ${
+      draftFiles.length
+    } drafts in ${(new Date().getTime() - start) / 1000.0}s.`;
 
     console.log(message);
 
-    this.unsubscribeDraftsStore = draftsStore.subscribe(
-      this.draftsStoreChanged.bind(this)
-    );
+    this.unsubscribeDraftsStore = draftsStore.subscribe(this.draftsStoreChanged.bind(this));
   }
 
   async fileMetadataChanged(file: TFile, _data: string, cache: CachedMetadata) {
@@ -224,9 +217,7 @@ export class StoreVaultSync {
     if (!old || !isEqual(draft, old)) {
       this.lastKnownDraftsByPath[draft.vaultPath] = draft;
       draftsStore.update((drafts) => {
-        const indexOfDraft = drafts.findIndex(
-          (d) => d.vaultPath === draft.vaultPath
-        );
+        const indexOfDraft = drafts.findIndex((d) => d.vaultPath === draft.vaultPath);
         if (indexOfDraft < 0) {
           //new draft
           drafts.push(draft);
@@ -248,8 +239,7 @@ export class StoreVaultSync {
       if (d.format !== "scenes") {
         return false;
       }
-      const parentPath = this.vault.getAbstractFileByPath(d.vaultPath).parent
-        .path;
+      const parentPath = this.vault.getAbstractFileByPath(d.vaultPath).parent.path;
       const targetPath = normalizePath(`${parentPath}/${d.sceneFolder}`);
       return (
         // file is in the scene folder
@@ -296,10 +286,7 @@ export class StoreVaultSync {
       if (found) {
         draftsStore.update((_drafts) => {
           return _drafts.map((d) => {
-            if (
-              d.vaultPath === found.draft.vaultPath &&
-              d.format === "scenes"
-            ) {
+            if (d.vaultPath === found.draft.vaultPath && d.format === "scenes") {
               d.scenes.splice(found.index, 1);
             }
             return d;
@@ -308,18 +295,13 @@ export class StoreVaultSync {
       } else {
         // check unknown files, delete from there if present
         const inDraftUnknown = drafts.find(
-          (d) => d.format === "scenes" && d.unknownFiles.contains(file.basename)
+          (d) => d.format === "scenes" && d.unknownFiles.contains(file.basename),
         );
         if (inDraftUnknown) {
           draftsStore.update((allDrafts) => {
             return allDrafts.map((d) => {
-              if (
-                d.vaultPath === inDraftUnknown.vaultPath &&
-                d.format === "scenes"
-              ) {
-                d.unknownFiles = d.unknownFiles.filter(
-                  (f) => f !== file.basename
-                );
+              if (d.vaultPath === inDraftUnknown.vaultPath && d.format === "scenes") {
+                d.unknownFiles = d.unknownFiles.filter((f) => f !== file.basename);
               }
               return d;
             });
@@ -363,10 +345,7 @@ export class StoreVaultSync {
       if (foundOld && oldParent === file.parent.path) {
         draftsStore.update((_drafts) => {
           return _drafts.map((d) => {
-            if (
-              d.vaultPath === foundOld.draft.vaultPath &&
-              d.format === "scenes"
-            ) {
+            if (d.vaultPath === foundOld.draft.vaultPath && d.format === "scenes") {
               d.scenes[foundOld.index].title = newTitle;
             }
             return d;
@@ -377,19 +356,14 @@ export class StoreVaultSync {
 
         // moved out of a draft
         const oldDraft = drafts.find((d) => {
-          return (
-            d.format === "scenes" &&
-            sceneFolderPath(d, this.vault) === oldParent
-          );
+          return d.format === "scenes" && sceneFolderPath(d, this.vault) === oldParent;
         });
         if (oldDraft) {
           draftsStore.update((_drafts) => {
             return _drafts.map((d) => {
               if (d.vaultPath === oldDraft.vaultPath && d.format === "scenes") {
                 d.scenes = d.scenes.filter((s) => s.title !== file.basename);
-                d.unknownFiles = d.unknownFiles.filter(
-                  (f) => f !== file.basename
-                );
+                d.unknownFiles = d.unknownFiles.filter((f) => f !== file.basename);
               }
               return d;
             });
@@ -398,10 +372,7 @@ export class StoreVaultSync {
 
         // moved into a draft
         const newDraft = drafts.find((d) => {
-          return (
-            d.format === "scenes" &&
-            sceneFolderPath(d, this.vault) === file.parent.path
-          );
+          return d.format === "scenes" && sceneFolderPath(d, this.vault) === file.parent.path;
         });
         if (newDraft) {
           draftsStore.update((_drafts) => {
@@ -430,14 +401,14 @@ export class StoreVaultSync {
       newValue.reduce((acc: Record<string, Draft>, d) => {
         acc[d.vaultPath] = d;
         return acc;
-      }, {})
+      }, {}),
     );
   }
 
   // if dirty, draft is modified from reality of index file
   // and should be written back to index file
   private async draftFor(
-    fileWithMetadata: FileWithMetadata
+    fileWithMetadata: FileWithMetadata,
   ): Promise<{ draft: Draft; dirty: boolean } | null> {
     if (!fileWithMetadata.metadata.frontmatter) {
       return null;
@@ -471,17 +442,11 @@ export class StoreVaultSync {
 
         let fm = null;
         try {
-          await this.app.fileManager.processFrontMatter(
-            fileWithMetadata.file,
-            (_fm) => {
-              fm = _fm;
-            }
-          );
+          await this.app.fileManager.processFrontMatter(fileWithMetadata.file, (_fm) => {
+            fm = _fm;
+          });
         } catch (error) {
-          console.error(
-            "[Longform] error manually loading frontmatter:",
-            error
-          );
+          console.error("[Longform] error manually loading frontmatter:", error);
         }
 
         if (fm) {
@@ -495,37 +460,29 @@ export class StoreVaultSync {
       const sceneTemplate = longformEntry["sceneTemplate"] ?? null;
       const ignoredFiles: string[] = longformEntry["ignoredFiles"] ?? [];
       const normalizedSceneFolder = normalizePath(
-        `${fileWithMetadata.file.parent.path}/${sceneFolder}`
+        `${fileWithMetadata.file.parent.path}/${sceneFolder}`,
       );
 
       let filenamesInSceneFolder: string[] = [];
       if (await this.vault.adapter.exists(normalizedSceneFolder)) {
-        filenamesInSceneFolder = (
-          await this.vault.adapter.list(normalizedSceneFolder)
-        ).files
+        filenamesInSceneFolder = (await this.vault.adapter.list(normalizedSceneFolder)).files
           .filter((f) => f !== fileWithMetadata.file.path && f.endsWith(".md"))
           .map((f) => this.vault.getAbstractFileByPath(f)?.name.slice(0, -3))
-          .filter(
-            (maybeName) => maybeName !== null && maybeName !== undefined
-          ) as string[];
+          .filter((maybeName) => maybeName !== null && maybeName !== undefined) as string[];
       }
 
       // Filter removed scenes
-      const knownScenes = scenes.filter(({ title }) =>
-        filenamesInSceneFolder.contains(title)
-      );
+      const knownScenes = scenes.filter(({ title }) => filenamesInSceneFolder.contains(title));
 
       const dirty = knownScenes.length !== scenes.length;
 
       const sceneTitles = new Set(scenes.map((s) => s.title));
-      const newScenes = filenamesInSceneFolder.filter(
-        (s) => !sceneTitles.has(s)
-      );
+      const newScenes = filenamesInSceneFolder.filter((s) => !sceneTitles.has(s));
 
       // ignore all new scenes that are known-to-ignore per ignoredFiles
-      const ignoredRegexes = ignoredFiles.filter(n => n).map((p) => ignoredPatternToRegex(p));
+      const ignoredRegexes = ignoredFiles.filter((n) => n).map((p) => ignoredPatternToRegex(p));
       const unknownFiles = newScenes.filter(
-        (s) => ignoredRegexes.find((r) => r.test(s)) === undefined
+        (s) => ignoredRegexes.find((r) => r.test(s)) === undefined,
       );
 
       return {
@@ -558,7 +515,7 @@ export class StoreVaultSync {
       };
     } else {
       console.log(
-        `[Longform] Error loading draft at ${fileWithMetadata.file.path}: invalid longform.format. Ignoring.`
+        `[Longform] Error loading draft at ${fileWithMetadata.file.path}: invalid longform.format. Ignoring.`,
       );
       return null;
     }
@@ -580,25 +537,14 @@ export class StoreVaultSync {
         const writes: Promise<void>[] = [];
         const sceneNumbers = numberScenes(draft.scenes);
         sceneNumbers.forEach((numberedScene, index) => {
-          const sceneFilePath = scenePath(
-            numberedScene.title,
-            draft,
-            this.app.vault
-          );
+          const sceneFilePath = scenePath(numberedScene.title, draft, this.app.vault);
 
           const sceneFile = this.app.vault.getAbstractFileByPath(sceneFilePath);
           // false if a folder, or not found
           if (!(sceneFile instanceof TFile)) {
             return;
           }
-          writes.push(
-            writeSceneNumbers(
-              this.app,
-              sceneFile,
-              index,
-              numberedScene.numbering
-            )
-          );
+          writes.push(writeSceneNumbers(this.app, sceneFile, index, numberedScene.numbering));
         });
 
         await Promise.all(writes);
@@ -626,12 +572,7 @@ export function syncSceneIndices(app: App): void | Promise<void[]> {
   return Promise.all(writes);
 }
 
-function writeSceneNumbers(
-  app: App,
-  file: TFile,
-  index: number,
-  numbering: number[]
-) {
+function writeSceneNumbers(app: App, file: TFile, index: number, numbering: number[]) {
   return app.fileManager.processFrontMatter(file, (fm) => {
     fm["longform-order"] = index;
     fm["longform-number"] = formatSceneNumber(numbering);

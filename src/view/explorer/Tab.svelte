@@ -1,13 +1,13 @@
 <script lang="ts">
   import { type ExplorerTab, selectedTab } from "src/view/stores";
 
-  export let tab: ExplorerTab;
+  let { tab }: { tab: ExplorerTab } = $props();
 </script>
 
 <button
   class="tab-button"
   class:selected={$selectedTab === tab}
-  on:click={() => selectedTab.set(tab)}
+  onclick={() => selectedTab.set(tab)}
 >
   {#if tab == "Scenes"}
     <svg

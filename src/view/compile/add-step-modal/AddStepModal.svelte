@@ -19,8 +19,6 @@
 
   const close: () => void = getContext("close");
   function onStepClick(step: CompileStep) {
-    // Inject the current epoch into the step ID to allow
-    // multiple same-typed steps.
     const newWorkflow: Workflow = {
       ...$currentWorkflow,
       steps: [
@@ -43,7 +41,7 @@
   <h2>Built-in Steps</h2>
   <div class="longform-steps-grid">
     {#each BUILTIN_STEPS as step}
-      <div class="longform-compile-step" on:click={() => onStepClick(step)}>
+      <div class="longform-compile-step" onclick={() => onStepClick(step)}>
         <h3>{step.description.name}</h3>
         <div class="longform-step-pill-container">
           {#each step.description.availableKinds as kind}
@@ -60,7 +58,7 @@
     <h2>User Script Steps</h2>
     <div class="longform-steps-grid">
       {#each $userScriptSteps as step}
-        <div class="longform-compile-step" on:click={() => onStepClick(step)}>
+        <div class="longform-compile-step" onclick={() => onStepClick(step)}>
           <h3>{step.description.name}</h3>
           <div class="longform-step-pill-container">
             {#each step.description.availableKinds as kind}

@@ -14,25 +14,17 @@
   const openFileAtPath: (path: string, paneType: PaneType | boolean) => void =
     getContext("onSceneClick");
 
-  // Map current projects to options for select element
-  let projectOptions: string[] = [];
-  $: {
-    projectOptions = Object.keys($projects);
-  }
+  let projectOptions = $derived(Object.keys($projects));
 
-  let draftOptions: { path: string; title: string }[] = [];
-  $: {
-    draftOptions = $selectedProject
+  let draftOptions = $derived(
+    $selectedProject
       ? $selectedProject.map((d) => ({
           path: d.vaultPath,
           title: draftTitle(d),
         }))
-      : [];
-  }
+      : []
+  );
 
-  // Add some indirection around project picking to make sure that selecting a project
-  // with multiple drafts picks the latest draft by default, and doesn't try to select
-  // the previous draft on a new project.
   function projectSelected(event: Event) {
     // @ts-ignore
     const title = event.target.value;
@@ -65,7 +57,7 @@
           name="projects"
           class="dropdown"
           value={$selectedDraft ? $selectedDraft.title : projectOptions[0]}
-          on:change={projectSelected}
+          onchange={projectSelected}
         >
           {#each projectOptions as projectOption}
             <option class="projectOption" value={projectOption}
@@ -85,7 +77,7 @@
       {/if}
     </div>
     {#if $selectedDraft}
-      <div class="current-draft-path" on:click={(e) => onDraftClick(e)}>
+      <div class="current-draft-path" onclick={(e) => onDraftClick(e)}>
         {$selectedDraft.vaultPath}
       </div>
     {/if}

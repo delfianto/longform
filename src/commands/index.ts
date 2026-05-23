@@ -13,10 +13,7 @@ import {
 } from "./navigation";
 import { indentScene, unindentScene } from "./indentation";
 import type LongformPlugin from "src/main";
-import {
-  insertMultiSceneTemplate,
-  insertSingleSceneTemplate,
-} from "./templates";
+import { insertMultiSceneTemplate, insertSingleSceneTemplate } from "./templates";
 import { startNewSession } from "./word-counts";
 
 const commandBuilders = [

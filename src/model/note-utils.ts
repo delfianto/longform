@@ -12,13 +12,13 @@ export function fileNameFromPath(path: string): string {
  * Prefers Templater, then the core Templates plugin, then a plain note without using the template.
  * @param path Path to note to create.
  * @param template Path to template to use.
- * 
+ *
  * @returns `null` if it fails to create the note.  `TFile` for the new note, if successful.
  */
 export async function createNoteWithPotentialTemplate(
   app: App,
   path: string,
-  template: string | null
+  template: string | null,
 ): Promise<TFile | null> {
   const file = await createNote(app, path);
   if (!file) return null;
@@ -52,7 +52,7 @@ export async function createNoteWithPotentialTemplate(
 export async function createNote(
   app: App,
   path: string,
-  initialContent = ""
+  initialContent = "",
 ): Promise<TFile | null> {
   const pathComponents = path.split("/");
   pathComponents.pop();
@@ -86,39 +86,22 @@ function isTemplatesEnabled(app: App): boolean {
   return !!(app as any).internalPlugins.getEnabledPluginById("templates");
 }
 
-async function createWithTemplater(
-  app: App,
-  file: TFile,
-  templatePath: string
-): Promise<string> {
+async function createWithTemplater(app: App, file: TFile, templatePath: string): Promise<string> {
   const templaterPlugin = (app as any).plugins.getPlugin("templater-obsidian");
   if (!templaterPlugin) {
-    console.error(
-      "[Longform] Attempted to use Templater plugin while disabled."
-    );
+    console.error("[Longform] Attempted to use Templater plugin while disabled.");
     return;
   }
   const template = app.vault.getAbstractFileByPath(templatePath);
 
-  const runningConfig = templaterPlugin.templater.create_running_config(
-    template,
-    file,
-    0
-  );
+  const runningConfig = templaterPlugin.templater.create_running_config(template, file, 0);
   return await templaterPlugin.templater.read_and_parse_template(runningConfig);
 }
 
-async function createWithTemplates(
-  app: App,
-  templatePath: string
-): Promise<string> {
-  const corePlugin = (app as any).internalPlugins.getEnabledPluginById(
-    "templates"
-  );
+async function createWithTemplates(app: App, templatePath: string): Promise<string> {
+  const corePlugin = (app as any).internalPlugins.getEnabledPluginById("templates");
   if (!corePlugin) {
-    console.error(
-      "[Longform] Attempted to use core template plugin while disabled."
-    );
+    console.error("[Longform] Attempted to use core template plugin while disabled.");
     return;
   }
   // Get template body
@@ -144,17 +127,14 @@ export function statsForScene(
   activeFile: TFile | null,
   draft: Draft,
   drafts: Draft[],
-  counts: DraftWordCounts
+  counts: DraftWordCounts,
 ): SceneWordStats | null {
   const count = counts[draft.vaultPath];
   if (!count) {
     return null;
   }
 
-  const totalForDraft = (
-    vaultPath: string,
-    counts: DraftWordCounts
-  ): number => {
+  const totalForDraft = (vaultPath: string, counts: DraftWordCounts): number => {
     const count = counts[vaultPath];
     if (typeof count === "number") {
       return count;
@@ -165,11 +145,7 @@ export function statsForScene(
     }
   };
 
-  const totalForProject = (
-    title: string,
-    drafts: Draft[],
-    counts: DraftWordCounts
-  ): number => {
+  const totalForProject = (title: string, drafts: Draft[], counts: DraftWordCounts): number => {
     const draftsForProject = drafts.filter((d) => d.title === title);
     return sum(draftsForProject.map((d) => totalForDraft(d.vaultPath, counts)));
   };
@@ -185,8 +161,7 @@ export function statsForScene(
     };
   } else {
     const sceneName = activeFile ? fileNameFromPath(activeFile.path) : null;
-    const sceneTotal =
-      sceneName && typeof count !== "number" ? count[sceneName] : 0;
+    const sceneTotal = sceneName && typeof count !== "number" ? count[sceneName] : 0;
     return {
       scene: sceneTotal,
       draft: draftTotal,

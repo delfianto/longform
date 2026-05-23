@@ -6,36 +6,27 @@
 
   import { getContext, onMount } from "svelte";
 
-  let title: string;
-  let copyScenes = false;
-  let checkboxContainer: HTMLElement;
+  let title = $state("");
+  let copyScenes = $state(false);
+  let checkboxContainer: HTMLElement = $state(null);
 
-  let showSceneToggle = false;
-  $: {
-    showSceneToggle = $selectedDraft && $selectedDraft.format === "scenes";
-  }
+  let showSceneToggle = $derived(
+    !!$selectedDraft && $selectedDraft.format === "scenes"
+  );
 
-  let valid = false;
-  let draftPath: string;
   const regex = /[:\\\/]/;
-  $: {
-    valid = title && !regex.test(title);
-    if (valid && $selectedDraft) {
-      if ($selectedDraft.format === "scenes") {
-        const parent = $selectedDraft.vaultPath
-          .split("/")
-          .slice(0, -2)
-          .join("/");
-        draftPath = normalizePath(`${parent}/${title}/Index.md`);
-      } else {
-        const parent = $selectedDraft.vaultPath
-          .split("/")
-          .slice(0, -1)
-          .join("/");
-        draftPath = normalizePath(`${parent}/${title}.md`);
-      }
-    }
-  }
+  let valid = $derived(!!title && !regex.test(title));
+  let draftPath = $derived(
+    valid && $selectedDraft
+      ? $selectedDraft.format === "scenes"
+        ? normalizePath(
+            `${$selectedDraft.vaultPath.split("/").slice(0, -2).join("/")}/${title}/Index.md`
+          )
+        : normalizePath(
+            `${$selectedDraft.vaultPath.split("/").slice(0, -1).join("/")}/${title}.md`
+          )
+      : ""
+  );
 
   onMount(() => {
     new Setting(checkboxContainer)
@@ -75,7 +66,7 @@
       type="text"
       placeholder="Version 5_final"
       bind:value={title}
-      on:keydown={(e) => {
+      onkeydown={(e) => {
         if (e.key === "Enter") {
           onCreateDraft();
         }
@@ -93,7 +84,7 @@
         <span class="target-path">{draftPath}</span>
       </p>
       <div class="draft-creation-container">
-        <button type="button" on:click={onCreateDraft}>Create</button>
+        <button type="button" onclick={onCreateDraft}>Create</button>
       </div>
     {/if}
   </div>

@@ -1,13 +1,10 @@
 import { App, Modal, TFolder } from "obsidian";
 import { insertDraftIntoFrontmatter } from "src/model/draft-utils";
 import { selectedDraftVaultPath } from "src/model/stores";
-import type {
-  Draft,
-  MultipleSceneDraft,
-  SingleSceneDraft,
-} from "src/model/types";
+import type { Draft, MultipleSceneDraft, SingleSceneDraft } from "src/model/types";
 import { selectedTab } from "src/view/stores";
 import NewProjectModal from "./NewProjectModal.svelte";
+import { mount } from "svelte";
 import { appContext } from "src/view/utils";
 
 export default class NewProjectModalContainer extends Modal {
@@ -33,9 +30,7 @@ export default class NewProjectModalContainer extends Modal {
       async (format: "scenes" | "single", title: string, path: string) => {
         const exists = await this.app.vault.adapter.exists(path);
         if (exists) {
-          console.log(
-            `[Longform] Cannot create project at ${path}, already exists.`
-          );
+          console.log(`[Longform] Cannot create project at ${path}, already exists.`);
           return;
         }
 
@@ -80,10 +75,10 @@ export default class NewProjectModalContainer extends Modal {
           this.app.workspace.openLinkText(path, "/", false);
         }
         this.close();
-      }
+      },
     );
 
-    new NewProjectModal({
+    mount(NewProjectModal, {
       target: entrypoint,
       context,
       props: {

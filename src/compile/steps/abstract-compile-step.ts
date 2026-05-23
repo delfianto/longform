@@ -156,10 +156,7 @@ export interface CompileStep {
     with the appropriate changes made to `contents`. If of kind "Join",
     the same shape as a "Manuscript" step input.
   */
-  compile(
-    input: CompileInput,
-    context: CompileContext
-  ): CompileInput | Promise<CompileInput>;
+  compile(input: CompileInput, context: CompileContext): CompileInput | Promise<CompileInput>;
 }
 
 /** A named series of steps to compile a Longform project into a finished product. */
@@ -176,12 +173,9 @@ export function makeBuiltinStep(
   v: {
     id: string;
     description: Omit<CompileStepDescription, "canonicalID" | "isScript">;
-    compile: (
-      input: CompileInput,
-      context: CompileContext
-    ) => CompileInput | Promise<CompileInput>;
+    compile: (input: CompileInput, context: CompileContext) => CompileInput | Promise<CompileInput>;
   },
-  isScript = false
+  isScript = false,
 ): CompileStep {
   return {
     ...v,
@@ -199,13 +193,9 @@ export function makeBuiltinStep(
   };
 }
 
-export function typeMismatchError(
-  expected: string,
-  got: string,
-  context: CompileContext
-): Error {
+export function typeMismatchError(expected: string, got: string, context: CompileContext): Error {
   return new Error(
-    `[Longform] A compile step received a type it did not expect. It expected "${expected}", but got "${got}" with step kind "${context.kind}"`
+    `[Longform] A compile step received a type it did not expect. It expected "${expected}", but got "${got}" with step kind "${context.kind}"`,
   );
 }
 

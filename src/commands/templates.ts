@@ -6,17 +6,13 @@ import { get } from "svelte/store";
 import type { CommandBuilder } from "./types";
 import { insertDraftIntoFrontmatter } from "src/model/draft-utils";
 import { fileNameFromPath } from "src/model/note-utils";
-import type {
-  Draft,
-  MultipleSceneDraft,
-  SingleSceneDraft,
-} from "src/model/types";
+import type { Draft, MultipleSceneDraft, SingleSceneDraft } from "src/model/types";
 
 const callbackForFormat = (
   format: "scenes" | "single",
   checking: boolean,
   _editor: Editor,
-  view: MarkdownView | MarkdownFileInfo
+  view: MarkdownView | MarkdownFileInfo,
 ): boolean | void => {
   const file = view.file;
 
@@ -26,7 +22,7 @@ const callbackForFormat = (
     return false;
   } else if (draft) {
     console.log(
-      `[Longform] Attempted to insert frontmatter into existing draft at ${file.path}; ignoring.`
+      `[Longform] Attempted to insert frontmatter into existing draft at ${file.path}; ignoring.`,
     );
   } else if (checking) {
     return true;

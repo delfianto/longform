@@ -1,10 +1,6 @@
 import { App, Notice, normalizePath } from "obsidian";
-import type { CompileContext, CompileManuscriptInput } from "..";
-import {
-  CompileStepKind,
-  CompileStepOptionType,
-  makeBuiltinStep,
-} from "./abstract-compile-step";
+import type { CompileContext, CompileInput, CompileManuscriptInput } from "..";
+import { CompileStepKind, CompileStepOptionType, makeBuiltinStep } from "./abstract-compile-step";
 
 export const WriteToNoteStep = makeBuiltinStep({
   id: "write-to-note",
@@ -30,10 +26,8 @@ export const WriteToNoteStep = makeBuiltinStep({
       },
     ],
   },
-  async compile(
-    input: CompileManuscriptInput,
-    context: CompileContext
-  ): Promise<CompileManuscriptInput> {
+  async compile(input: CompileInput, context: CompileContext): Promise<CompileInput> {
+    const msInput = input as CompileManuscriptInput;
     if (context.kind !== CompileStepKind.Manuscript) {
       throw new Error("Cannot write non-manuscript as note.");
     } else {
@@ -46,7 +40,7 @@ export const WriteToNoteStep = makeBuiltinStep({
       }
 
       const filePath = resolvePath(context.projectPath, target);
-      await writeToFile(context.app, filePath, input.contents);
+      await writeToFile(context.app, filePath, msInput.contents);
 
       if (openAfter) {
         console.log("[Longform] Attempting to open:", filePath);
@@ -61,11 +55,7 @@ export const WriteToNoteStep = makeBuiltinStep({
   },
 });
 
-async function writeToFile(
-  app: App,
-  filePath: string,
-  contents: string
-): Promise<void> {
+async function writeToFile(app: App, filePath: string, contents: string): Promise<void> {
   await ensureContainingFolderExists(app, filePath);
 
   console.log("[Longform] Writing to:", filePath);
@@ -73,10 +63,7 @@ async function writeToFile(
   await app.vault.adapter.write(filePath, contents);
 }
 
-async function ensureContainingFolderExists(
-  app: App,
-  filePath: string
-): Promise<void> {
+async function ensureContainingFolderExists(app: App, filePath: string): Promise<void> {
   const containingFolderParts = filePath.split("/");
   const containingFolderPath = containingFolderParts.slice(0, -1).join("/");
 
@@ -121,17 +108,13 @@ function resolvePath(projectPath: string, filePath: string): string {
     .md -> impossible due to blank check in WriteToNoteStep
   */
 
-  return resolveRelativeFilePath(
-    projectPath.split("/"),
-    filePath.split("/"),
-    true
-  );
+  return resolveRelativeFilePath(projectPath.split("/"), filePath.split("/"), true);
 }
 
 function resolveRelativeFilePath(
   projectPathComponents: string[],
   filePathComponents: string[],
-  atStartOfFilePath: boolean
+  atStartOfFilePath: boolean,
 ): string {
   // should never be empty due to blank check in WriteToNoteStep
   // and String.split() will return an array of at least one element
@@ -148,7 +131,7 @@ function resolveRelativeFilePath(
       return resolveRelativeFilePath(
         projectPathComponents.slice(0, -1),
         filePathComponents.slice(1),
-        false
+        false,
       );
     }
     case ".": {
@@ -158,23 +141,15 @@ function resolveRelativeFilePath(
         throw new Error("[Longform] Invalid path for Save as Note.");
       }
       // stay here, but remove the first filepath component
-      return resolveRelativeFilePath(
-        projectPathComponents,
-        filePathComponents.slice(1),
-        false
-      );
+      return resolveRelativeFilePath(projectPathComponents, filePathComponents.slice(1), false);
     }
     default: {
       const filename = filePathComponents.last();
       if (filename.startsWith(".")) {
-        new Notice(
-          "Obsidian cannot open files that begin with a dot. Consider a different name."
-        );
+        new Notice("Obsidian cannot open files that begin with a dot. Consider a different name.");
       }
       // assume there are no more ".." in the rest of the filePathComponents
-      return normalizePath(
-        projectPathComponents.concat(filePathComponents).join("/")
-      );
+      return normalizePath(projectPathComponents.concat(filePathComponents).join("/"));
     }
   }
 }

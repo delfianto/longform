@@ -15,7 +15,7 @@
     $selectedDraftVaultPath = draft.vaultPath;
   }
 
-  let editingPath: string | null = null;
+  let editingPath: string | null = $state(null);
 
   const showDraftMenu: (x: number, y: number, action: () => void) => void =
     getContext("showDraftMenu");
@@ -78,12 +78,14 @@
             class="draft-container"
             class:selected={$selectedDraft &&
               $selectedDraft.vaultPath === draft.vaultPath}
-            on:click={() => onDraftClick(draft)}
-            on:contextmenu|preventDefault={onContext}
-            on:keydown={draft.vaultPath === editingPath ? onKeydown : null}
-            on:blur={draft.vaultPath === editingPath ? onBlur : null}
+            onclick={() => onDraftClick(draft)}
+            oncontextmenu={(e) => { e.preventDefault(); onContext(e); }}
+            onkeydown={draft.vaultPath === editingPath ? onKeydown : null}
+            onblur={draft.vaultPath === editingPath ? onBlur : null}
             data-draft-path={draft.vaultPath}
             contenteditable={draft.vaultPath === editingPath}
+            role="button"
+            tabindex="0"
           >
             {draftTitle(draft)}
           </div>

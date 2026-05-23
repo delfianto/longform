@@ -23,8 +23,9 @@ export const addScene = (fileName: string) => {
         ...targetDraft.scenes,
         { title: fileName, indent: 0 },
       ];
-      (d[index] as MultipleSceneDraft).unknownFiles =
-        targetDraft.unknownFiles.filter((f) => f !== fileName);
+      (d[index] as MultipleSceneDraft).unknownFiles = targetDraft.unknownFiles.filter(
+        (f) => f !== fileName,
+      );
       return d;
     });
   }
@@ -39,14 +40,15 @@ export const ignoreScene = (fileName: string) => {
     drafts.update((d) => {
       const targetDraft = d[index] as MultipleSceneDraft;
       (d[index] as MultipleSceneDraft).scenes = targetDraft.scenes.filter(
-        (it) => it.title != fileName
+        (it) => it.title != fileName,
       );
       (d[index] as MultipleSceneDraft).ignoredFiles = [
-        ...targetDraft.ignoredFiles,
+        ...(targetDraft.ignoredFiles ?? []),
         fileName,
       ];
-      (d[index] as MultipleSceneDraft).unknownFiles =
-        targetDraft.unknownFiles.filter((f) => f !== fileName);
+      (d[index] as MultipleSceneDraft).unknownFiles = targetDraft.unknownFiles.filter(
+        (f) => f !== fileName,
+      );
       return d;
     });
   }
@@ -79,7 +81,7 @@ export const ignoreAll = () => {
     drafts.update((d) => {
       const targetDraft = d[index] as MultipleSceneDraft;
       (d[index] as MultipleSceneDraft).ignoredFiles = [
-        ...targetDraft.ignoredFiles,
+        ...(targetDraft.ignoredFiles ?? []),
         ...targetDraft.unknownFiles,
       ];
       (d[index] as MultipleSceneDraft).unknownFiles = [];

@@ -5,6 +5,7 @@ import { selectedDraft, selectedDraftVaultPath } from "src/model/stores";
 import type { Draft } from "src/model/types";
 import { get } from "svelte/store";
 import NewDraftModal from "./NewDraftModal.svelte";
+import { mount } from "svelte";
 import { appContext } from "src/view/utils";
 
 export default class NewDraftModalContainer extends Modal {
@@ -15,7 +16,7 @@ export default class NewDraftModalContainer extends Modal {
   onOpen(): void {
     const { contentEl } = this;
 
-    const title = get(selectedDraft).title;
+    const title = get(selectedDraft)?.title ?? "";
 
     contentEl.createEl("h1", { text: `New Draft of ${title}` }, (el) => {
       el.style.margin = "0 0 var(--size-4-4) 0";
@@ -27,12 +28,7 @@ export default class NewDraftModalContainer extends Modal {
 
     context.set(
       "createDraft",
-      async (
-        newVaultPath: string,
-        draft: Draft,
-        draftTitle: string,
-        copyScenes: boolean
-      ) => {
+      async (newVaultPath: string, draft: Draft, draftTitle: string, copyScenes: boolean) => {
         if (draft.format === "single") {
           const newDraft = {
             ...draft,
@@ -52,15 +48,13 @@ export default class NewDraftModalContainer extends Modal {
 
           if (copyScenes) {
             // copy scene notes
-            const newSceneParent = normalizePath(
-              `${parentPath}/${draft.sceneFolder}/`
-            );
+            const newSceneParent = normalizePath(`${parentPath}/${draft.sceneFolder}/`);
             await Promise.all(
               draft.scenes.map((scene) => {
                 const path = scenePath(scene.title, draft, this.app.vault);
                 const newPath = scenePathForFolder(scene.title, newSceneParent);
                 return this.app.vault.adapter.copy(path, newPath);
-              })
+              }),
             );
           }
 
@@ -76,10 +70,10 @@ export default class NewDraftModalContainer extends Modal {
           selectedDraftVaultPath.set(newVaultPath);
         }
         this.close();
-      }
+      },
     );
 
-    new NewDraftModal({
+    mount(NewDraftModal, {
       target: entrypoint,
       context,
     });

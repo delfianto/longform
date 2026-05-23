@@ -5,10 +5,7 @@ import { drafts as draftsStore } from "src/model/stores";
 import { findScene } from "src/model/scene-navigation";
 import type { CommandBuilder } from "./types";
 
-const checkIndent = (
-  checking: boolean,
-  action: "indent" | "unindent"
-): boolean | void => {
+const checkIndent = (checking: boolean, action: "indent" | "unindent"): boolean | void => {
   const path = get(activeFile).path;
   const drafts = get(draftsStore);
   const result = findScene(path, drafts);

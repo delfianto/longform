@@ -20,7 +20,7 @@ export async function createScene(
   path: string,
   index: number,
   draft: MultipleSceneDraft,
-  open: boolean
+  open: boolean,
 ): Promise<void> {
   const template = draft.sceneTemplate ?? get(pluginSettings).sceneTemplate;
   const note = await createNoteWithPotentialTemplate(app, path, template);
@@ -44,7 +44,7 @@ export async function insertScene(
   sceneName: string,
   vault: Vault,
   location: SceneInsertionLocation,
-  open: boolean
+  open: boolean,
 ) {
   const newScenePath = scenePath(sceneName, draft, vault);
 
@@ -59,10 +59,7 @@ export async function insertScene(
           d.scenes = [...d.scenes, { title: sceneName, indent: 0 }];
         } else {
           const relativeScene = d.scenes[location.relativeTo];
-          const index =
-            location.at === "before"
-              ? location.relativeTo
-              : location.relativeTo + 1;
+          const index = location.at === "before" ? location.relativeTo : location.relativeTo + 1;
           d.scenes.splice(index, 0, {
             title: sceneName,
             indent: relativeScene.indent,
@@ -78,14 +75,11 @@ export async function insertScene(
     newScenePath,
     draft.scenes.findIndex((s) => s.title === sceneName),
     draft,
-    open
+    open,
   );
 }
 
-export function setDraftOnFrontmatterObject(
-  obj: Record<string, any>,
-  draft: Draft
-) {
+export function setDraftOnFrontmatterObject(obj: Record<string, any>, draft: Draft) {
   obj["longform"] = {};
   obj["longform"]["format"] = draft.format;
   if (draft.titleInFrontmatter) {
@@ -145,7 +139,7 @@ export function indentedScenesToArrays(indented: IndentedScene[]) {
 export function arraysToIndentedScenes(
   arr: any,
   result: IndentedScene[] = [],
-  currentIndent = -1
+  currentIndent = -1,
 ): IndentedScene[] {
   if (arr instanceof Array) {
     if (arr.length === 0) {
@@ -200,11 +194,7 @@ export function formatSceneNumber(numbering: number[]): string {
   return numbering.join(".");
 }
 
-export async function insertDraftIntoFrontmatter(
-  app: App,
-  path: string,
-  draft: Draft
-) {
+export async function insertDraftIntoFrontmatter(app: App, path: string, draft: Draft) {
   const exists = await app.vault.adapter.exists(path);
   if (!exists) {
     await app.vault.create(path, "");
@@ -220,9 +210,6 @@ export async function insertDraftIntoFrontmatter(
       setDraftOnFrontmatterObject(fm, draft);
     });
   } catch (error) {
-    console.error(
-      "[Longform] insertDraftIntoFrontmatter: processFrontMatter error:",
-      error
-    );
+    console.error("[Longform] insertDraftIntoFrontmatter: processFrontMatter error:", error);
   }
 }

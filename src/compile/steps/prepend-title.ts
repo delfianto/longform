@@ -1,12 +1,8 @@
 import { repeat } from "lodash";
 import { formatSceneNumber } from "src/model/draft-utils";
-import type { CompileSceneInput } from "..";
+import type { CompileInput, CompileSceneInput } from "..";
 import type { CompileContext } from "./abstract-compile-step";
-import {
-  CompileStepKind,
-  makeBuiltinStep,
-  CompileStepOptionType,
-} from "./abstract-compile-step";
+import { CompileStepKind, makeBuiltinStep, CompileStepOptionType } from "./abstract-compile-step";
 
 export const PrependTitleStep = makeBuiltinStep({
   id: "prepend-title",
@@ -32,23 +28,18 @@ export const PrependTitleStep = makeBuiltinStep({
       },
     ],
   },
-  compile(
-    input: CompileSceneInput[],
-    context: CompileContext
-  ): CompileSceneInput[] {
+  compile(input: CompileInput, context: CompileContext): CompileInput {
+    const sceneInputs = input as CompileSceneInput[];
     const format = context.optionValues["format"] as string;
     const separator = context.optionValues["separator"] as string;
 
-    return input.map((sceneInput) => {
+    return sceneInputs.map((sceneInput) => {
       let title = format;
       const regex = /\$3{(?<torepeat>.*)}/;
       const match = format.match(regex);
       if (match) {
         const toRepeat = match["groups"]["torepeat"] ?? "";
-        title = title.replace(
-          regex,
-          repeat(toRepeat, (sceneInput.indentationLevel ?? -1) + 1)
-        );
+        title = title.replace(regex, repeat(toRepeat, (sceneInput.indentationLevel ?? -1) + 1));
       }
       title = title.replace("$1", sceneInput.name);
       if (sceneInput.numbering) {

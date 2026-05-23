@@ -24,15 +24,14 @@
   import AutoTextArea from "../components/AutoTextArea.svelte";
   import type { Draft } from "src/model/types";
 
-  let workflowContextButton: HTMLElement;
-  let workflowInputState: "hidden" | "new" | "rename" = "hidden";
-  let workflowInputValue = "";
-  let workflowInput: HTMLElement;
-  let allWorkflowNames: string[] = [];
-  let currentWorkflowName: string | null = null;
-  let compileStatus: HTMLElement;
-  let defaultCompileStatus: string;
-  let isDeletingWorkflow = false;
+  let workflowContextButton: HTMLElement = $state(null);
+  let workflowInputState: "hidden" | "new" | "rename" = $state("hidden");
+  let workflowInputValue = $state("");
+  let workflowInput: HTMLElement = $state(null);
+  let allWorkflowNames: string[] = $state([]);
+  let currentWorkflowName: string | null = $state(null);
+  let compileStatus: HTMLElement = $state(null);
+  let isDeletingWorkflow = $state(false);
 
   const showConfirmModal: (
     title: string,
@@ -41,18 +40,17 @@
     yesAction: () => void
   ) => void = getContext("showConfirmModal");
 
-  let currentDraftIndex: number;
-  $: {
-    currentDraftIndex =
-      $selectedDraft &&
-      $drafts.findIndex((d) => d.vaultPath === $selectedDraft.vaultPath);
-  }
+  let currentDraftIndex = $derived(
+    $selectedDraft
+      ? $drafts.findIndex((d) => d.vaultPath === $selectedDraft.vaultPath)
+      : -1
+  );
 
-  // WORKFLOW MANAGEMENT
+  $effect(() => {
+    allWorkflowNames = Object.keys($workflows).sort() ?? [];
+  });
 
-  $: allWorkflowNames = Object.keys($workflows).sort() ?? [];
-
-  $: {
+  $effect(() => {
     if ($selectedDraft) {
       currentWorkflowName = $selectedDraft.workflow;
 
@@ -62,12 +60,13 @@
         !currentWorkflowName &&
         allWorkflowNames.length > 0
       ) {
-        // shadowed here to prevent circular reference
-        const _currentDraftIndex = $drafts.findIndex((d) => d.vaultPath === $selectedDraft.vaultPath);
+        const _currentDraftIndex = $drafts.findIndex(
+          (d) => d.vaultPath === $selectedDraft.vaultPath
+        );
         $drafts[_currentDraftIndex].workflow = allWorkflowNames[0];
       }
     }
-  }
+  });
 
   function selectedWorkflow(event: Event) {
     // @ts-ignore
@@ -91,7 +90,7 @@
     } else if (type == "delete") {
       showConfirmModal(
         `Delete ${currentWorkflowName}?`,
-        "Really delete this workflow? This can’t be undone.",
+        "Really delete this workflow? This can't be undone.",
         "Delete",
         () => {
           isDeletingWorkflow = true;
@@ -138,8 +137,6 @@
     el.focus();
   }
 
-  // VALIDATION
-
   const openCompileStepMenu: () => Vault = getContext("openCompileStepMenu");
   function addStep() {
     openCompileStepMenu();
@@ -149,9 +146,10 @@
     error: WorkflowError.Valid,
     stepPosition: 0,
   };
-  let validation: WorkflowValidationResult = VALID;
-  let calculatedKinds: CompileStepKind[] = [];
-  $: {
+  let validation: WorkflowValidationResult = $state(VALID);
+  let calculatedKinds: CompileStepKind[] = $state([]);
+
+  $effect(() => {
     if ($currentWorkflow) {
       [validation, calculatedKinds] = calculateWorkflow(
         $currentWorkflow,
@@ -161,7 +159,7 @@
       validation = VALID;
       calculatedKinds = [];
     }
-  }
+  });
 
   function kindAtIndex(index: number): CompileStepKind | null {
     return index < calculatedKinds.length ? calculatedKinds[index] : null;
@@ -177,17 +175,17 @@
     return null;
   }
 
-  // SORTING
   type StepItem = { id: string; index: number };
-  let items: StepItem[];
-  $: {
+  let items: StepItem[] = $state([]);
+
+  $effect(() => {
     items = $currentWorkflow
       ? $currentWorkflow.steps.map((step, index) => ({
           id: step.id,
           index,
         }))
       : [];
-  }
+  });
 
   const sortableOptions: Sortable.Options = {
     animation: 150,
@@ -195,20 +193,17 @@
     dragClass: "step-drag",
   };
 
-  // Called when sorting ends an the item order has been updated.
-  function itemOrderChanged(event: CustomEvent<StepItem[]>) {
+  function itemOrderChanged(newItems: StepItem[]) {
     const newWorkflow = {
       ...$currentWorkflow,
-      steps: event.detail.map(({ index }) => $currentWorkflow.steps[index]),
+      steps: newItems.map(({ index }) => $currentWorkflow.steps[index]),
     };
     $workflows[currentWorkflowName] = newWorkflow;
   }
 
-  // COMPILATION
-
-  $: defaultCompileStatus = `Will run ${
-    $currentWorkflow ? $currentWorkflow.steps.length : 0
-  } steps.`;
+  let defaultCompileStatus = $derived(
+    `Will run ${$currentWorkflow ? $currentWorkflow.steps.length : 0} steps.`
+  );
 
   function onCompileStatusChange(status: CompileStatus) {
     if (status.kind == "CompileStatusError") {
@@ -265,7 +260,7 @@
               : "My Cool Workflow"}
             bind:value={workflowInputValue}
             bind:this={workflowInput}
-            on:keydown={(e) => {
+            onkeydown={(e) => {
               if (e.key === "Enter" && workflowInputValue.length > 0) {
                 onWorkflowInputEnter();
               } else if (e.key === "Escape") {
@@ -284,7 +279,7 @@
               <select
                 id="longform-workflows"
                 value={$selectedDraft.workflow}
-                on:change={selectedWorkflow}
+                onchange={selectedWorkflow}
               >
                 {#each allWorkflowNames as workflowOption}
                   <option value={workflowOption}>{workflowOption}</option>
@@ -296,7 +291,7 @@
             class="options-button"
             title="Workflow Actions"
             bind:this={workflowContextButton}
-            on:click={() => {
+            onclick={() => {
               const rect = workflowContextButton.getBoundingClientRect();
               showCompileActionsMenu(
                 rect.x,
@@ -320,30 +315,31 @@
     {#if $workflows[currentWorkflowName]}
       <SortableList
         bind:items
-        let:item
         {sortableOptions}
-        on:orderChanged={itemOrderChanged}
+        onorderChanged={itemOrderChanged}
         class="longform-sortable-step-list"
       >
-        <CompileStepView
-          ordinal={item.index + 1}
-          step={$workflows[currentWorkflowName].steps[item.index]}
-          on:removeStep={() => {
-            const newWorkflow = {
-              ...$currentWorkflow,
-              steps: $currentWorkflow.steps.filter(
-                (_e, index) => item.index !== index
-              ),
-            };
-            $workflows[currentWorkflowName] = newWorkflow;
-          }}
-          calculatedKind={kindAtIndex(item.index)}
-          error={errorAtIndex(item.index)}
-        />
+        {#snippet children(item)}
+          <CompileStepView
+            ordinal={item.index + 1}
+            step={$workflows[currentWorkflowName].steps[item.index]}
+            onremoveStep={() => {
+              const newWorkflow = {
+                ...$currentWorkflow,
+                steps: $currentWorkflow.steps.filter(
+                  (_e, index) => item.index !== index
+                ),
+              };
+              $workflows[currentWorkflowName] = newWorkflow;
+            }}
+            calculatedKind={kindAtIndex(item.index)}
+            error={errorAtIndex(item.index)}
+          />
+        {/snippet}
       </SortableList>
       <div class="add-step-container">
         {#if Object.keys($workflows).length > 0}
-          <button on:click={addStep}>+ Add Step</button>
+          <button onclick={addStep}>+ Add Step</button>
         {/if}
       </div>
     {/if}
@@ -371,7 +367,7 @@
       {#if $currentWorkflow && $currentWorkflow.steps.length > 0}
         <button
           class="compile-button"
-          on:click={doCompile}
+          onclick={doCompile}
           disabled={validation.error !== WorkflowError.Valid}
           aria-label={validation.error}>Compile</button
         >
@@ -474,14 +470,14 @@
     padding: var(--size-4-4) var(--size-4-4) var(--size-4-1) var(--size-4-8);
     color: var(--text-muted);
   }
-  
-    .longform-compile-instructions li {
-      margin-bottom: var(--size-4-1)
-    }
 
-    .longform-compile-instructions strong {
-      color: var(--color-accent-2);
-    }
+  .longform-compile-instructions li {
+    margin-bottom: var(--size-4-1)
+  }
+
+  .longform-compile-instructions strong {
+    color: var(--color-accent-2);
+  }
 
   .compile-button {
     font-weight: bold;

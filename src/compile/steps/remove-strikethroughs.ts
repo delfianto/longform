@@ -1,9 +1,4 @@
-import type {
-  CompileContext,
-  CompileInput,
-  CompileManuscriptInput,
-  CompileSceneInput,
-} from "..";
+import type { CompileContext, CompileInput, CompileManuscriptInput, CompileSceneInput } from "..";
 import { CompileStepKind, makeBuiltinStep } from "./abstract-compile-step";
 
 const STRIKETHROUGH_REGEX = /~~(.*?)~~/gm;
@@ -27,10 +22,7 @@ export const RemoveStrikethroughsStep = makeBuiltinStep({
     } else {
       return {
         ...(input as CompileManuscriptInput),
-        contents: (input as CompileManuscriptInput).contents.replace(
-          STRIKETHROUGH_REGEX,
-          () => ""
-        ),
+        contents: (input as CompileManuscriptInput).contents.replace(STRIKETHROUGH_REGEX, () => ""),
       };
     }
   },

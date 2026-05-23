@@ -1,3 +1,5 @@
+import "../styles.css";
+
 import {
   Plugin,
   WorkspaceLeaf,
@@ -5,6 +7,7 @@ import {
   addIcon,
   Notice,
   TAbstractFile,
+  TFile,
   TFolder,
   normalizePath,
 } from "obsidian";
@@ -14,10 +17,7 @@ import pick from "lodash/pick";
 import { derived, type Unsubscriber } from "svelte/store";
 import { get } from "svelte/store";
 
-import {
-  VIEW_TYPE_LONGFORM_EXPLORER,
-  ExplorerPane,
-} from "./view/explorer/ExplorerPane";
+import { VIEW_TYPE_LONGFORM_EXPLORER, ExplorerPane } from "./view/explorer/ExplorerPane";
 import {
   PASSTHROUGH_SAVE_SETTINGS_PATHS,
   type Draft,
@@ -29,10 +29,7 @@ import { DEFAULT_SETTINGS, TRACKED_SETTINGS_PATHS } from "./model/types";
 import { activeFile, goalProgress, selectedTab } from "./view/stores";
 import { ICON_NAME, ICON_SVG } from "./view/icon";
 import { LongformSettingsTab } from "./view/settings/LongformSettings";
-import {
-  deserializeWorkflow,
-  serializeWorkflow,
-} from "./compile/serialization";
+import { deserializeWorkflow, serializeWorkflow } from "./compile/serialization";
 import type { Workflow } from "./compile";
 import { DEFAULT_WORKFLOWS } from "./compile";
 import { UserScriptObserver } from "./model/user-script-observer";
@@ -78,10 +75,7 @@ export default class LongformPlugin extends Plugin {
     console.log(`[Longform] Starting Longform ${this.manifest.version}…`);
     addIcon(ICON_NAME, ICON_SVG);
 
-    this.registerView(
-      VIEW_TYPE_LONGFORM_EXPLORER,
-      (leaf: WorkspaceLeaf) => new ExplorerPane(leaf)
-    );
+    this.registerView(VIEW_TYPE_LONGFORM_EXPLORER, (leaf: WorkspaceLeaf) => new ExplorerPane(leaf));
 
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file: TAbstractFile) => {
@@ -96,7 +90,7 @@ export default class LongformPlugin extends Plugin {
               new NewProjectModal(this.app, file).open();
             });
         });
-      })
+      }),
     );
 
     // Settings
@@ -106,18 +100,14 @@ export default class LongformPlugin extends Plugin {
       const changeInKeys = (
         obj1: Record<string, any>,
         obj2: Record<string, any>,
-        keys: string[]
+        keys: string[],
       ): boolean => {
         return !!keys.find((k) => obj1[k] !== obj2[k]);
       };
 
       if (
         this.cachedSettings &&
-        changeInKeys(
-          this.cachedSettings,
-          value,
-          PASSTHROUGH_SAVE_SETTINGS_PATHS
-        )
+        changeInKeys(this.cachedSettings, value, PASSTHROUGH_SAVE_SETTINGS_PATHS)
       ) {
         shouldSave = true;
       }
@@ -145,13 +135,10 @@ export default class LongformPlugin extends Plugin {
         }
         // NOTE: This may break, as it's undocumented.
         // Need some way to determine the empty state.
-        else if (
-          (leaf.view as any).emptyTitleEl &&
-          (leaf.view as any).emptyStateEl
-        ) {
+        else if ((leaf.view as any).emptyTitleEl && (leaf.view as any).emptyStateEl) {
           activeFile.set(null);
         }
-      })
+      }),
     );
 
     addCommands(this);
@@ -160,7 +147,7 @@ export default class LongformPlugin extends Plugin {
     this.registerEvent(
       this.app.workspace.on("layout-change", () => {
         this.styleLongformLeaves();
-      })
+      }),
     );
     this.unsubscribeDrafts = drafts.subscribe((allDrafts) => {
       this.styleLongformLeaves(allDrafts);
@@ -191,7 +178,7 @@ export default class LongformPlugin extends Plugin {
 
     const _pluginSettings: LongformPluginSettings = pick(
       settings,
-      TRACKED_SETTINGS_PATHS
+      TRACKED_SETTINGS_PATHS,
     ) as LongformPluginSettings;
     pluginSettings.set(_pluginSettings);
     selectedDraftVaultPath.set(_pluginSettings.selectedDraftVaultPath);
@@ -200,10 +187,7 @@ export default class LongformPlugin extends Plugin {
     // We load user scripts imperatively first to cover cases where we need to deserialize
     // workflows that may contain them.
     const userScriptFolder = settings["userScriptFolder"];
-    this.userScriptObserver = new UserScriptObserver(
-      this.app.vault,
-      userScriptFolder
-    );
+    this.userScriptObserver = new UserScriptObserver(this.app.vault, userScriptFolder);
     await this.userScriptObserver.loadUserSteps();
 
     let _workflows = settings["workflows"];
@@ -215,9 +199,7 @@ export default class LongformPlugin extends Plugin {
 
     const deserializedWorkflows: Record<string, Workflow> = {};
     Object.entries(_workflows).forEach(([key, value]) => {
-      deserializedWorkflows[key as string] = deserializeWorkflow(
-        value as SerializedWorkflow
-      );
+      deserializedWorkflows[key as string] = deserializeWorkflow(value as SerializedWorkflow);
     });
     workflows.set(deserializedWorkflows);
 
@@ -230,9 +212,7 @@ export default class LongformPlugin extends Plugin {
       if (draft) {
         selectedDraftVaultPath.set(draft.vaultPath);
         this.initLeaf();
-        const leaf = this.app.workspace
-          .getLeavesOfType(VIEW_TYPE_LONGFORM_EXPLORER)
-          .first();
+        const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_LONGFORM_EXPLORER).first();
         if (leaf) {
           this.app.workspace.revealLeaf(leaf);
         }
@@ -245,7 +225,7 @@ export default class LongformPlugin extends Plugin {
       settings["sessions"],
       this.addStatusBarItem(),
       onStatusClick,
-      this.app.vault
+      this.app.vault,
     );
   }
 
@@ -364,45 +344,34 @@ export default class LongformPlugin extends Plugin {
 
     this.unsubscribeGoalNotification = derived(
       [goalProgress, pluginSettings, selectedDraft, activeFile],
-      (stores) => stores
-    ).subscribe(
-      ([$goalProgress, $pluginSettings, $selectedDraft, $activeFile]) => {
-        if ($goalProgress >= 1 && $pluginSettings.notifyOnGoal) {
-          let target: string;
-          if ($pluginSettings.applyGoalTo === "all") {
-            target = "all";
-          } else if ($pluginSettings.applyGoalTo === "project") {
-            target = `draft::${$selectedDraft.vaultPath}`;
-          } else if ($pluginSettings.applyGoalTo === "note") {
-            if ($selectedDraft && $selectedDraft.format === "single") {
-              target = `note::${$selectedDraft.vaultPath}`;
-            } else if (
-              $selectedDraft &&
-              $selectedDraft.format === "scenes" &&
-              $activeFile
-            ) {
-              target = `note::${$activeFile.path}`;
-            }
-          }
-          if (
-            target &&
-            !this.writingSessionTracker.goalsNotifiedFor.has(target)
-          ) {
-            this.writingSessionTracker.goalsNotifiedFor.add(target);
-            new Notice("Writing goal met!");
+      (stores) => stores,
+    ).subscribe(([$goalProgress, $pluginSettings, $selectedDraft, $activeFile]) => {
+      if ($goalProgress >= 1 && $pluginSettings.notifyOnGoal) {
+        let target: string;
+        if ($pluginSettings.applyGoalTo === "all") {
+          target = "all";
+        } else if ($pluginSettings.applyGoalTo === "project") {
+          target = `draft::${$selectedDraft.vaultPath}`;
+        } else if ($pluginSettings.applyGoalTo === "note") {
+          if ($selectedDraft && $selectedDraft.format === "single") {
+            target = `note::${$selectedDraft.vaultPath}`;
+          } else if ($selectedDraft && $selectedDraft.format === "scenes" && $activeFile) {
+            target = `note::${$activeFile.path}`;
           }
         }
+        if (target && !this.writingSessionTracker.goalsNotifiedFor.has(target)) {
+          this.writingSessionTracker.goalsNotifiedFor.add(target);
+          new Notice("Writing goal met!");
+        }
       }
-    );
+    });
 
     this.initLeaf();
     initialized.set(true);
   }
 
   initLeaf(): void {
-    if (
-      this.app.workspace.getLeavesOfType(VIEW_TYPE_LONGFORM_EXPLORER).length
-    ) {
+    if (this.app.workspace.getLeavesOfType(VIEW_TYPE_LONGFORM_EXPLORER).length) {
       return;
     }
     this.app.workspace.getLeftLeaf(false).setViewState({
@@ -415,32 +384,26 @@ export default class LongformPlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on(
         "modify",
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)
-      )
+        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver),
+      ),
     );
 
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(
-          file
-        );
-      })
+        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(file);
+      }),
     );
 
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(
-          file
-        );
-      })
+        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(file);
+      }),
     );
 
     this.registerEvent(
       this.app.vault.on("rename", (file, _oldPath) => {
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(
-          file
-        );
-      })
+        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(file);
+      }),
     );
 
     // STORE-VAULT SYNC
@@ -449,61 +412,54 @@ export default class LongformPlugin extends Plugin {
     this.registerEvent(
       this.app.metadataCache.on(
         "changed",
-        this.storeVaultSync.fileMetadataChanged.bind(this.storeVaultSync)
-      )
+        this.storeVaultSync.fileMetadataChanged.bind(this.storeVaultSync),
+      ),
     );
 
     this.registerEvent(
-      this.app.vault.on(
-        "create",
-        this.storeVaultSync.fileCreated.bind(this.storeVaultSync)
-      )
+      this.app.vault.on("create", (file) => this.storeVaultSync.fileCreated(file as TFile)),
     );
 
     this.registerEvent(
-      this.app.vault.on(
-        "delete",
-        this.storeVaultSync.fileDeleted.bind(this.storeVaultSync)
-      )
+      this.app.vault.on("delete", (file) => this.storeVaultSync.fileDeleted(file as TFile)),
     );
 
     this.registerEvent(
-      this.app.vault.on(
-        "rename",
-        this.storeVaultSync.fileRenamed.bind(this.storeVaultSync)
-      )
+      this.app.vault.on("rename", (file, oldPath) =>
+        this.storeVaultSync.fileRenamed(file as TFile, oldPath),
+      ),
     );
 
     // WORD COUNTS
     this.registerEvent(
       this.app.vault.on(
         "modify",
-        this.writingSessionTracker.fileModified.bind(this.writingSessionTracker)
-      )
+        this.writingSessionTracker.fileModified.bind(this.writingSessionTracker),
+      ),
     );
 
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        this.writingSessionTracker.debouncedCountDraftContaining.bind(
-          this.writingSessionTracker
-        )(file);
-      })
+        this.writingSessionTracker.debouncedCountDraftContaining.bind(this.writingSessionTracker)(
+          file,
+        );
+      }),
     );
 
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        this.writingSessionTracker.debouncedCountDraftContaining.bind(
-          this.writingSessionTracker
-        )(file);
-      })
+        this.writingSessionTracker.debouncedCountDraftContaining.bind(this.writingSessionTracker)(
+          file,
+        );
+      }),
     );
 
     this.registerEvent(
       this.app.vault.on("rename", (file, _oldPath) => {
-        this.writingSessionTracker.debouncedCountDraftContaining.bind(
-          this.writingSessionTracker
-        )(file);
-      })
+        this.writingSessionTracker.debouncedCountDraftContaining.bind(this.writingSessionTracker)(
+          file,
+        );
+      }),
     );
   }
 

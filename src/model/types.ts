@@ -157,22 +157,21 @@ export const TRACKED_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
   "writeProperty",
 ];
 
-export const PASSTHROUGH_SAVE_SETTINGS_PATHS: (keyof LongformPluginSettings)[] =
-  [
-    "sessionStorage",
-    "userScriptFolder",
-    "showWordCountInStatusBar",
-    "startNewSessionEachDay",
-    "sessionGoal",
-    "applyGoalTo",
-    "notifyOnGoal",
-    "countDeletionsForGoal",
-    "keepSessionCount",
-    "sessionFile",
-    "numberScenes",
-    "sceneTemplate",
-    "waitForSync",
-    "fallbackWaitEnabled",
-    "fallbackWaitTime",
-    "writeProperty",
-  ];
+export const PASSTHROUGH_SAVE_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
+  "sessionStorage",
+  "userScriptFolder",
+  "showWordCountInStatusBar",
+  "startNewSessionEachDay",
+  "sessionGoal",
+  "applyGoalTo",
+  "notifyOnGoal",
+  "countDeletionsForGoal",
+  "keepSessionCount",
+  "sessionFile",
+  "numberScenes",
+  "sceneTemplate",
+  "waitForSync",
+  "fallbackWaitEnabled",
+  "fallbackWaitTime",
+  "writeProperty",
+];

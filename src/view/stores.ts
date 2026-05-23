@@ -1,18 +1,8 @@
 import type { TFile } from "obsidian";
 import { derived, writable } from "svelte/store";
 
-import {
-  drafts,
-  draftWordCounts,
-  selectedDraft,
-  sessions,
-  pluginSettings,
-} from "src/model/stores";
-import {
-  type SceneWordStats,
-  statsForScene,
-  fileNameFromPath,
-} from "src/model/note-utils";
+import { drafts, draftWordCounts, selectedDraft, sessions, pluginSettings } from "src/model/stores";
+import { type SceneWordStats, statsForScene, fileNameFromPath } from "src/model/note-utils";
 import { draftForPath } from "src/model/scene-navigation";
 import type { Draft, DraftWordCounts } from "src/model/types";
 
@@ -24,9 +14,9 @@ export const selectedTab = writable<ExplorerTab>("Project");
 
 const statsFor = (
   file: TFile,
-  draft: Draft,
+  draft: Draft | null | undefined,
   drafts: Draft[],
-  wordCounts: DraftWordCounts
+  wordCounts: DraftWordCounts,
 ): SceneWordStats | null => {
   if (draft && wordCounts) {
     return statsForScene(file, draft, drafts, wordCounts);
@@ -38,18 +28,17 @@ const statsFor = (
 export const selectedDraftWordCountStatus = derived(
   [activeFile, selectedDraft, drafts, draftWordCounts],
   ([$activeFile, $selectedDraft, $drafts, $draftWordCounts]) =>
-    statsFor($activeFile, $selectedDraft, $drafts, $draftWordCounts)
+    $activeFile && $selectedDraft
+      ? statsFor($activeFile, $selectedDraft, $drafts, $draftWordCounts)
+      : null,
 );
 
 export const activeFileWordCountStatus = derived(
   [activeFile, selectedDraft, drafts, draftWordCounts],
   ([$activeFile, , $drafts, $draftWordCounts]) =>
-    statsFor(
-      $activeFile,
-      $activeFile && draftForPath($activeFile.path, $drafts),
-      $drafts,
-      $draftWordCounts
-    )
+    $activeFile
+      ? statsFor($activeFile, draftForPath($activeFile.path, $drafts), $drafts, $draftWordCounts)
+      : null,
 );
 
 export const goalProgress = derived(
@@ -91,5 +80,5 @@ export const goalProgress = derived(
         return sceneTotal / goal;
       }
     }
-  }
+  },
 );

@@ -1,11 +1,7 @@
 import debounce from "lodash/debounce";
 import type { Vault, TAbstractFile } from "obsidian";
 import type { CompileStep, Workflow } from "src/compile";
-import {
-  CompileStepKind,
-  CompileStepOptionType,
-  makeBuiltinStep,
-} from "src/compile";
+import { CompileStepKind, CompileStepOptionType, makeBuiltinStep } from "src/compile";
 import { pluginSettings, userScriptSteps, workflows } from "src/model/stores";
 import type { Unsubscriber } from "svelte/store";
 import { get } from "svelte/store";
@@ -26,9 +22,7 @@ export class UserScriptObserver {
     this.vault = vault;
     this.userScriptFolder = userScriptFolder;
     this.onScriptModify = debounce(() => {
-      console.log(
-        `[Longform] File in user script folder modified, reloading scripts…`
-      );
+      console.log(`[Longform] File in user script folder modified, reloading scripts…`);
       this.loadUserSteps();
     }, DEBOUNCE_SCRIPT_LOAD_DELAY_MS);
   }
@@ -42,10 +36,7 @@ export class UserScriptObserver {
       this.unsubscribeScriptFolder();
     }
     this.unsubscribeScriptFolder = pluginSettings.subscribe(async (s) => {
-      if (
-        this.initializedSteps &&
-        s.userScriptFolder === this.userScriptFolder
-      ) {
+      if (this.initializedSteps && s.userScriptFolder === this.userScriptFolder) {
         return;
       }
 
@@ -88,10 +79,7 @@ export class UserScriptObserver {
         const step = await this.loadScript(file);
         userSteps.push(step);
       } catch (e) {
-        console.error(
-          `[Longform] skipping user script ${file} due to error:`,
-          e
-        );
+        console.error(`[Longform] skipping user script ${file} due to error:`, e);
       }
     }
 
@@ -108,7 +96,7 @@ export class UserScriptObserver {
       const workflow = _workflows[name];
       const workflowSteps = workflow.steps.map((step) => {
         const userStep = userSteps.find(
-          (u) => step.description.canonicalID === u.description.canonicalID
+          (u) => step.description.canonicalID === u.description.canonicalID,
         );
         if (userStep) {
           let mergedStep = {
@@ -158,18 +146,14 @@ export class UserScriptObserver {
     };
 
     const evaluateScript = window.eval(
-      "(function anonymous(require, module, exports){" + js + "\n})"
+      "(function anonymous(require, module, exports){" + js + "\n})",
     );
     evaluateScript(_require, module, exports);
     const loadedStep: any = exports["default"] || module.exports;
 
     if (!loadedStep) {
-      console.error(
-        `[Longform] Failed to load user script ${path}. No exports detected.`
-      );
-      throw new Error(
-        `Failed to load user script ${path}. No exports detected.`
-      );
+      console.error(`[Longform] Failed to load user script ${path}. No exports detected.`);
+      throw new Error(`Failed to load user script ${path}. No exports detected.`);
     }
 
     const step = makeBuiltinStep(
@@ -179,19 +163,17 @@ export class UserScriptObserver {
         description: {
           ...loadedStep.description,
           availableKinds: loadedStep.description.availableKinds.map(
-            (v: string) => CompileStepKind[v as keyof typeof CompileStepKind]
+            (v: string) => CompileStepKind[v as keyof typeof CompileStepKind],
           ),
           options: loadedStep.description.options
             ? loadedStep.description.options.map((o: any) => ({
                 ...o,
-                type: CompileStepOptionType[
-                  o.type as keyof typeof CompileStepOptionType
-                ],
+                type: CompileStepOptionType[o.type as keyof typeof CompileStepOptionType],
               }))
             : [],
         },
       },
-      true
+      true,
     );
 
     return {

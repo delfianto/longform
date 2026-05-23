@@ -27,6 +27,6 @@ export function statsForScene(
   }
 
   const sceneName = activeFile ? fileNameFromPath(activeFile.path) : null;
-  const sceneTotal = sceneName && typeof count !== "number" ? count[sceneName] : 0;
+  const sceneTotal = sceneName && typeof count !== "number" ? (count[sceneName] ?? 0) : 0;
   return { scene: sceneTotal, project: projectTotal };
 }

@@ -20,7 +20,7 @@ export class WorkspaceLeaf {}
 export class Notice {
   constructor(_message: string) {}
 }
-export const normalizePath = (p: string) => p;
+export const normalizePath = (p: string) => p.replace(/\/+/g, "/").replace(/^\/+/, "");
 export const addIcon = notImplemented("addIcon");
 export const Keymap = {
   isModEvent: notImplemented("Keymap.isModEvent"),

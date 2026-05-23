@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   encodeIndentedScenes,
   decodeFlatScenes,
+  numberScenes,
   setProjectFrontmatter,
 } from "src/model/project-utils";
 import type { IndentedScene, MultipleSceneProject, SingleSceneProject } from "src/model/types";
@@ -142,5 +143,39 @@ describe("setProjectFrontmatter (flat v3 schema)", () => {
     expect(fm.scenes).toBeUndefined();
     expect(fm.ignoredFiles).toBeUndefined();
     expect(fm.sceneTemplate).toBeUndefined();
+  });
+});
+
+describe("numberScenes", () => {
+  it("numbers a flat list as [1], [2], [3]", () => {
+    const scenes: IndentedScene[] = [
+      { title: "a", indent: 0 },
+      { title: "b", indent: 0 },
+      { title: "c", indent: 0 },
+    ];
+    const result = numberScenes(scenes).map((s) => s.numbering);
+    expect(result).toEqual([[1], [2], [3]]);
+  });
+
+  it("numbers nested scenes with hierarchical indices", () => {
+    const scenes: IndentedScene[] = [
+      { title: "a", indent: 0 },
+      { title: "a.1", indent: 1 },
+      { title: "a.1.1", indent: 2 },
+      { title: "a.2", indent: 1 },
+      { title: "b", indent: 0 },
+    ];
+    const result = numberScenes(scenes).map((s) => s.numbering);
+    expect(result).toEqual([[1], [1, 1], [1, 1, 1], [1, 2], [2]]);
+  });
+
+  it("resets sub-numbering when de-indenting back to root", () => {
+    const scenes: IndentedScene[] = [
+      { title: "a", indent: 0 },
+      { title: "a.1", indent: 1 },
+      { title: "b", indent: 0 },
+    ];
+    const result = numberScenes(scenes).map((s) => s.numbering);
+    expect(result).toEqual([[1], [1, 1], [2]]);
   });
 });

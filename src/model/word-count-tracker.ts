@@ -26,7 +26,7 @@ const WORD_COUNT_REGEX = (() => {
   );
 })();
 
-function countWords(text: string, removeMarkdown = true, removeComments = true): number {
+export function countWords(text: string, removeMarkdown = true, removeComments = true): number {
   let textToCount = text;
 
   if (removeMarkdown) {

@@ -1,7 +1,7 @@
 import { get } from "svelte/store";
 
 import { activeFile } from "src/view/stores";
-import { drafts as draftsStore } from "src/model/stores";
+import { projects as draftsStore } from "src/model/stores";
 import { findScene } from "src/model/scene-navigation";
 import type { CommandBuilder } from "./types";
 

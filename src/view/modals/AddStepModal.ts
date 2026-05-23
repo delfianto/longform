@@ -1,9 +1,9 @@
 import { App, Modal } from "obsidian";
 
-import AddStepModal from "./AddStepModal.svelte";
+import AddStepModalContent from "./AddStepModal.svelte";
 import { appContext } from "src/view/utils";
 
-export default class AddStepModalContainer extends Modal {
+export default class AddStepModal extends Modal {
   constructor(app: App) {
     super(app);
   }
@@ -17,7 +17,7 @@ export default class AddStepModalContainer extends Modal {
     const context = appContext(this);
     context.set("close", () => this.close());
 
-    new AddStepModal({
+    new AddStepModalContent({
       target: entrypoint,
       context,
     });

@@ -45,11 +45,6 @@ export type SingleSceneProject = {
 
 export type Project = MultipleSceneProject | SingleSceneProject;
 
-// Legacy type aliases — kept so compile steps and API callers don't all need updating at once.
-export type Draft = Project;
-export type MultipleSceneDraft = MultipleSceneProject;
-export type SingleSceneDraft = SingleSceneProject;
-
 export type SerializedStep = {
   id: string;
   optionValues: { [id: string]: unknown };
@@ -66,9 +61,6 @@ export type SerializedWorkflow = {
  * in the case of single-scene projects, the word count.
  */
 export type ProjectWordCounts = Record<string, Record<string, number> | number>;
-
-// Legacy alias
-export type DraftWordCounts = ProjectWordCounts;
 
 export interface LongformPluginSettings {
   version: number;

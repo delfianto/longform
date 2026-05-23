@@ -52,9 +52,3 @@ export const currentWorkflow = derived(
     return null;
   },
 );
-
-// Legacy aliases so callers that use the old names still compile.
-export const drafts = projects;
-export const selectedDraft = selectedProject;
-export const selectedDraftVaultPath = selectedProjectPath;
-export const draftWordCounts = projectWordCounts;

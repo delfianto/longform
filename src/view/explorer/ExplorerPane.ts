@@ -9,9 +9,9 @@ import {
 } from "obsidian";
 import type { CompileStatus, Workflow } from "src/compile";
 import { compile, CompileStepKind } from "src/compile";
-import type { Draft, MultipleSceneDraft } from "src/model/types";
-import AddStepModal from "../compile/add-step-modal";
-import ConfirmActionModal from "../ConfirmActionModal";
+import type { Project, MultipleSceneProject } from "src/model/types";
+import AddStepModal from "../modals/AddStepModal";
+import ConfirmActionModal from "../modals/ConfirmActionModal";
 import { ICON_NAME } from "../icon";
 import ExplorerView from "./ExplorerView.svelte";
 import { mount, unmount } from "svelte";
@@ -19,7 +19,7 @@ import { scenePath } from "src/model/scene-navigation";
 import { get } from "svelte/store";
 import { projects, selectedProject } from "src/model/stores";
 import { insertScene } from "src/model/draft-utils";
-import { UndoManager } from "../undo/undo-manager";
+import { UndoManager } from "../undo-manager";
 import { ignoreScene } from "./scene-menu-items";
 import { appContext } from "../utils";
 
@@ -94,7 +94,7 @@ export class ExplorerPane extends ItemView {
     );
 
     // Create a fully-qualified path to a scene from its name.
-    context.set("makeScenePath", (draft: MultipleSceneDraft, sceneName: string) =>
+    context.set("makeScenePath", (draft: MultipleSceneProject, sceneName: string) =>
       scenePath(sceneName, draft, this.app.vault),
     );
 
@@ -108,7 +108,7 @@ export class ExplorerPane extends ItemView {
       await insertScene(
         this.app,
         projects,
-        get(selectedProject) as MultipleSceneDraft,
+        get(selectedProject) as MultipleSceneProject,
         name,
         this.app.vault,
         { at: "end", relativeTo: null },
@@ -117,7 +117,7 @@ export class ExplorerPane extends ItemView {
     });
 
     const addRelativeScene = (at: "before" | "after", file: TAbstractFile) => {
-      const draft = get(selectedProject) as MultipleSceneDraft;
+      const draft = get(selectedProject) as MultipleSceneProject;
       let sceneName = "Untitled";
       let count = 0;
       const sceneNames = new Set(draft.scenes.map((s) => s.title));
@@ -209,7 +209,7 @@ export class ExplorerPane extends ItemView {
     context.set(
       "compile",
       (
-        draft: Draft,
+        draft: Project,
         workflow: Workflow,
         kinds: CompileStepKind[],
         statusCallback: (status: CompileStatus) => void,

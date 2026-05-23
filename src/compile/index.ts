@@ -1,7 +1,7 @@
 import { type App, normalizePath } from "obsidian";
 import { numberScenes } from "src/model/draft-utils";
 import { projectFolderPath, sceneFolderPath, scenePathForFolder } from "src/model/scene-navigation";
-import type { Draft, SerializedWorkflow } from "src/model/types";
+import type { Project, SerializedWorkflow } from "src/model/types";
 import {
   CompileStepKind,
   type CompileContext,
@@ -168,7 +168,7 @@ export function calculateWorkflow(
 
 export async function compile(
   app: App,
-  draft: Draft,
+  draft: Project,
   workflow: Workflow,
   kinds: CompileStepKind[],
   statusCallback: (status: CompileStatus) => void,

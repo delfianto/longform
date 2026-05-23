@@ -43,8 +43,8 @@ import {
 import { addCommands } from "./commands";
 import { draftForPath } from "./model/scene-navigation";
 import { WordCountTracker } from "./model/word-count-tracker";
-import NewProjectModal from "./view/project-lifecycle/new-project-modal";
-import { LongformAPI } from "./api/LongformAPI";
+import NewProjectModal from "./view/modals/NewProjectModal";
+import { LongformAPI } from "./api";
 
 const LONGFORM_LEAF_CLASS = "longform-leaf";
 

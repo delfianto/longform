@@ -1,7 +1,7 @@
 import { last, sum } from "lodash";
 import type { App, TFile } from "obsidian";
 
-import type { Draft, DraftWordCounts } from "./types";
+import type { Project, ProjectWordCounts } from "./types";
 
 export function fileNameFromPath(path: string): string {
   return last(path.split("/")).split(".md")[0];
@@ -125,16 +125,16 @@ export type SceneWordStats = {
 
 export function statsForScene(
   activeFile: TFile | null,
-  draft: Draft,
-  drafts: Draft[],
-  counts: DraftWordCounts,
+  draft: Project,
+  drafts: Project[],
+  counts: ProjectWordCounts,
 ): SceneWordStats | null {
   const count = counts[draft.vaultPath];
   if (!count) {
     return null;
   }
 
-  const totalForDraft = (vaultPath: string, counts: DraftWordCounts): number => {
+  const totalForDraft = (vaultPath: string, counts: ProjectWordCounts): number => {
     const count = counts[vaultPath];
     if (typeof count === "number") {
       return count;
@@ -145,7 +145,7 @@ export function statsForScene(
     }
   };
 
-  const totalForProject = (title: string, drafts: Draft[], counts: DraftWordCounts): number => {
+  const totalForProject = (title: string, drafts: Project[], counts: ProjectWordCounts): number => {
     const draftsForProject = drafts.filter((d) => d.title === title);
     return sum(draftsForProject.map((d) => totalForDraft(d.vaultPath, counts)));
   };

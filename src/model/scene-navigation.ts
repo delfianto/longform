@@ -1,11 +1,11 @@
 import { normalizePath, type Vault } from "obsidian";
-import type { Draft, MultipleSceneDraft } from "./types";
+import type { Project, MultipleSceneProject } from "./types";
 
-export function projectFolderPath(draft: Draft, vault: Vault): string {
+export function projectFolderPath(draft: Project, vault: Vault): string {
   return vault.getAbstractFileByPath(draft.vaultPath).parent.path;
 }
 
-export function sceneFolderPath(draft: MultipleSceneDraft, vault: Vault): string {
+export function sceneFolderPath(draft: MultipleSceneProject, vault: Vault): string {
   const root = vault.getAbstractFileByPath(draft.vaultPath).parent.path;
   return normalizePath(`${root}/${draft.sceneFolder}`);
 }
@@ -14,15 +14,15 @@ export function scenePathForFolder(sceneName: string, folderPath: string): strin
   return normalizePath(`${folderPath}/${sceneName}.md`);
 }
 
-export function scenePath(sceneName: string, draft: MultipleSceneDraft, vault: Vault): string {
+export function scenePath(sceneName: string, draft: MultipleSceneProject, vault: Vault): string {
   const sceneFolder = sceneFolderPath(draft, vault);
   return scenePathForFolder(sceneName, sceneFolder);
 }
 
 export function findScene(
   path: string,
-  drafts: Draft[],
-): { draft: Draft; index: number; currentIndent: number } | null {
+  drafts: Project[],
+): { draft: Project; index: number; currentIndent: number } | null {
   for (const draft of drafts) {
     if (draft.format === "scenes") {
       const parentPath = draft.vaultPath.split("/").slice(0, -1).join("/");
@@ -40,7 +40,7 @@ export function findScene(
   return null;
 }
 
-export function draftForPath(path: string, drafts: Draft[]): Draft | null {
+export function draftForPath(path: string, drafts: Project[]): Project | null {
   for (const draft of drafts) {
     if (draft.vaultPath === path) {
       return draft;
@@ -62,7 +62,7 @@ export type SceneNavigationLocation = {
 export function scenePathForLocation(
   location: SceneNavigationLocation,
   path: string,
-  drafts: Draft[],
+  drafts: Project[],
   vault: Vault,
 ): string | null {
   for (const draft of drafts) {

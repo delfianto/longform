@@ -7,15 +7,15 @@
   } from "src/model/stores";
   import { getContext } from "svelte";
 
-  import { BUILTIN_STEPS } from "../../../compile/steps";
+  import { BUILTIN_STEPS } from "../../compile/steps";
   import type {
     CompileStep,
     Workflow,
-  } from "../../../compile/steps/abstract-compile-step";
+  } from "../../compile/steps/abstract-compile-step";
   import {
     explainStepKind,
     formatStepKind,
-  } from "../../../compile/steps/abstract-compile-step";
+  } from "../../compile/steps/abstract-compile-step";
 
   const close: () => void = getContext("close");
   function onStepClick(step: CompileStep) {

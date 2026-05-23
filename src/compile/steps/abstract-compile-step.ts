@@ -1,5 +1,5 @@
 import type { App, CachedMetadata } from "obsidian";
-import type { Draft } from "src/model/types";
+import type { Project } from "src/model/types";
 
 export enum CompileStepKind {
   /** Takes an array of scene files, processes them in some way, and outputs an array of scene files. */
@@ -123,8 +123,8 @@ export type CompileContext = {
   optionValues: { [id: string]: unknown };
   /** The path, relative to the vault root, to the compiled project. */
   projectPath: string;
-  /** The Draft option describing the draft currently being compiled. */
-  draft: Draft;
+  /** The Project option describing the project currently being compiled. */
+  draft: Project;
   /** Obsidian’s app object, for accessing APIs. */
   app: App;
   /** Utility functions provided to steps for convenience. */

@@ -3,11 +3,11 @@ import { insertProjectFrontmatter } from "src/model/draft-utils";
 import { selectedProjectPath } from "src/model/stores";
 import type { Project, MultipleSceneProject, SingleSceneProject } from "src/model/types";
 import { selectedTab } from "src/view/stores";
-import NewProjectModal from "./NewProjectModal.svelte";
+import NewProjectModalContent from "./NewProjectModal.svelte";
 import { mount } from "svelte";
 import { appContext } from "src/view/utils";
 
-export default class NewProjectModalContainer extends Modal {
+export default class NewProjectModal extends Modal {
   private parent: TFolder;
 
   constructor(app: App, parent: TFolder) {
@@ -78,7 +78,7 @@ export default class NewProjectModalContainer extends Modal {
       },
     );
 
-    mount(NewProjectModal, {
+    mount(NewProjectModalContent, {
       target: entrypoint,
       context,
       props: {

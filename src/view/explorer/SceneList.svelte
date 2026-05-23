@@ -12,7 +12,7 @@
   import type { IndentedScene, MultipleSceneProject } from "src/model/types";
   import Disclosure from "../components/Disclosure.svelte";
   import { formatSceneNumber, numberScenes } from "src/model/draft-utils";
-  import type { UndoManager } from "src/view/undo/undo-manager";
+  import type { UndoManager } from "src/view/undo-manager";
   import { cloneDeep } from "lodash";
   import { scenePath } from "src/model/scene-navigation";
   import { selectElementContents, useApp } from "../utils";

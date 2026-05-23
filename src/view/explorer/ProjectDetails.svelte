@@ -310,9 +310,19 @@
     margin-left: calc(var(--size-4-6) * -1);
     background: none;
     border: none;
+    box-shadow: none;
+    outline: none;
     padding: 0;
     width: 100%;
     text-align: left;
+  }
+
+  .longform-project-details-section-header:hover,
+  .longform-project-details-section-header:focus,
+  .longform-project-details-section-header:active {
+    background: none;
+    box-shadow: none;
+    outline: none;
   }
 
   h4 {

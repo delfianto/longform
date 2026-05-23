@@ -18,8 +18,18 @@
   button {
     background: none;
     border: none;
+    box-shadow: none;
+    outline: none;
     padding: 0;
     cursor: pointer;
+  }
+
+  button:hover,
+  button:focus,
+  button:active {
+    background: none;
+    box-shadow: none;
+    outline: none;
   }
 
   .right-triangle {

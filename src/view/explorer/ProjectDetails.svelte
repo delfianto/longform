@@ -1,12 +1,10 @@
 <script lang="ts">
-  import { last } from "lodash";
   import { normalizePath } from "obsidian";
-  import { draftForPath, projectFolderPath } from "src/model/scene-navigation";
-  import { pluginSettings, projects } from "src/model/stores";
+  import { projectFolderPath } from "src/model/scene-navigation";
+  import { pluginSettings, projects, projectsByTitle } from "src/model/stores";
   import {
-    drafts,
-    selectedDraft,
-    selectedDraftVaultPath,
+    selectedProject,
+    selectedProjectPath,
   } from "src/model/stores";
   import { getContext, onMount } from "svelte";
   import Disclosure from "../components/Disclosure.svelte";
@@ -14,76 +12,72 @@
   import { FileSuggest } from "../settings/file-suggest";
   import { FolderSuggest } from "../settings/folder-suggest";
   import {
-    selectedDraftWordCountStatus,
+    selectedProjectWordCountStatus,
     goalProgress,
     activeFile,
   } from "../stores";
-  import DraftList from "./DraftList.svelte";
   import { useApp } from "../utils";
 
   const app = useApp();
 
   let showMetdata = $state(true);
   let showWordCount = $state(true);
-  let showDrafts = $state(true);
 
   function titleChanged(event: Event) {
     let newTitle = (event.target as any).value;
-    drafts.update((_drafts) => {
-      const currentDraftIndex = _drafts.findIndex(
-        (d) => d.vaultPath === $selectedDraftVaultPath
+    projects.update((_projects) => {
+      const currentIndex = _projects.findIndex(
+        (p) => p.vaultPath === $selectedProjectPath
       );
-      if (currentDraftIndex >= 0) {
-        const currentDraft = _drafts[currentDraftIndex];
-        const currentTitle = currentDraft.title;
+      if (currentIndex >= 0) {
+        const current = _projects[currentIndex];
+        const currentTitle = current.title;
         let titleInFrontmatter = true;
 
         if (newTitle.length === 0) {
-          newTitle = last(
-            _drafts[currentDraftIndex].vaultPath.split("/")
-          ).split(".md")[0];
+          newTitle = $selectedProjectPath.split("/").at(-1).replace(/\.md$/, "");
           titleInFrontmatter = false;
         }
 
-        return _drafts.map((d) => {
-          if (d.title === currentTitle) {
-            d.title = newTitle;
-            d.titleInFrontmatter = titleInFrontmatter;
+        return _projects.map((p) => {
+          if (p.title === currentTitle) {
+            p.title = newTitle;
+            p.titleInFrontmatter = titleInFrontmatter;
           }
-          return d;
+          return p;
         });
       }
-      return _drafts;
+      return _projects;
     });
   }
 
   let sceneFolderInput: HTMLInputElement = $state(null);
   onMount(() => {
-    if (sceneFolderInput && $selectedDraft.format === "scenes") {
-      const projectPath = projectFolderPath($selectedDraft, app.vault);
+    if (sceneFolderInput && $selectedProject.format === "scenes") {
+      const projectPath = projectFolderPath($selectedProject, app.vault);
       new FolderSuggest(app, sceneFolderInput, projectPath);
     }
   });
 
   async function sceneFolderChanged(event: Event) {
     const newFolder = (event.target as any).value;
-    if (newFolder.length <= 0 || !$selectedDraft) {
+    if (newFolder.length <= 0 || !$selectedProject) {
       return;
     }
-    const root = app.vault.getAbstractFileByPath($selectedDraft.vaultPath)
+    const root = app.vault.getAbstractFileByPath($selectedProject.vaultPath)
       .parent.path;
     const path = normalizePath(`${root}/${newFolder}`);
     const exists = await app.vault.adapter.exists(path);
     if (exists) {
-      drafts.update((allDrafts) =>
-        allDrafts.map((d) => {
+      projects.update((all) =>
+        all.map((p) => {
           if (
-            d.vaultPath === $selectedDraftVaultPath &&
-            d.format === "scenes"
+            p.vaultPath === $selectedProjectPath &&
+            p.format === "scenes"
           ) {
-            d.sceneFolder = newFolder;
+            p.sceneFolder = newFolder;
           }
-          return d;
+          return p;
         })
       );
     }
@@ -91,13 +85,13 @@
 
   let sceneTemplateInput: HTMLInputElement = $state(null);
   onMount(() => {
-    if (sceneTemplateInput && $selectedDraft.format === "scenes") {
+    if (sceneTemplateInput && $selectedProject.format === "scenes") {
       new FileSuggest(app, sceneTemplateInput);
     }
   });
   async function sceneTemplateChanged(event: Event) {
     let newTemplate = (event.target as any).value;
-    if (!$selectedDraft) {
+    if (!$selectedProject) {
       return;
     }
     let exists = true;
@@ -108,38 +102,39 @@
     }
 
     if (exists) {
-      drafts.update((allDrafts) =>
-        allDrafts.map((d) => {
+      projects.update((all) =>
+        all.map((p) => {
           if (
-            d.vaultPath === $selectedDraftVaultPath &&
-            d.format === "scenes"
+            p.vaultPath === $selectedProjectPath &&
+            p.format === "scenes"
           ) {
-            d.sceneTemplate = newTemplate;
+            p.sceneTemplate = newTemplate;
           }
-          return d;
+          return p;
         })
       );
     }
   }
 
   let projectCount = $state(0);
-  let draftCount: number | null = $state(null);
   let sceneCount: number | null = $state(null);
 
   $effect(() => {
-    if ($selectedDraftWordCountStatus) {
-      const { scene, draft, project } = $selectedDraftWordCountStatus;
+    if ($selectedProjectWordCountStatus) {
+      const { scene, project } = $selectedProjectWordCountStatus;
       projectCount = project;
-      draftCount = $projects[$selectedDraft.title].length > 1 ? draft : null;
-      sceneCount = $selectedDraft.format === "scenes" ? scene : null;
+      sceneCount = $selectedProject.format === "scenes" ? scene : null;
     }
   });
 
   let showProgress = $state(false);
   $effect(() => {
-    if ($activeFile && $selectedDraft) {
-      const draft = draftForPath($activeFile.path, $drafts);
-      showProgress = draft && draft.vaultPath === $selectedDraft.vaultPath;
+    if ($activeFile && $selectedProject) {
+      showProgress = $activeFile.path === $selectedProject.vaultPath ||
+        ($selectedProject.format === "scenes" &&
+          $selectedProject.scenes.some(
+            (s) => $activeFile.path.endsWith(`/${s.title}.md`)
+          ));
     }
   });
 
@@ -164,15 +159,10 @@
       return `${count.toLocaleString()} ${noun}s`;
     }
   }
-
-  const showNewDraftModal: () => void = getContext("showNewDraftModal");
-  function onNewDraft() {
-    showNewDraftModal();
-  }
 </script>
 
 <div>
-  {#if $selectedDraft}
+  {#if $selectedProject}
     <div class="longform-project-section">
       <button
         type="button"
@@ -188,15 +178,15 @@
           <input
             id="longform-project-title"
             type="text"
-            value={$selectedDraft.title}
+            value={$selectedProject.title}
             onchange={titleChanged}
           />
-          {#if $selectedDraft.format === "scenes"}
+          {#if $selectedProject.format === "scenes"}
             <label for="longform-project-scene-folder">Scene Folder</label>
             <input
               id="longform-project-scene-folder"
               type="text"
-              value={$selectedDraft.sceneFolder}
+              value={$selectedProject.sceneFolder}
               bind:this={sceneFolderInput}
               onblur={sceneFolderChanged}
             />
@@ -205,12 +195,11 @@
               scenes to a new folder, move them in your vault first, then
               change this setting.
             </p>
-            <label for="longform-project-scene-template">Scene Template</label
-            >
+            <label for="longform-project-scene-template">Scene Template</label>
             <input
               id="longform-project-scene-template"
               type="text"
-              value={$selectedDraft.sceneTemplate}
+              value={$selectedProject.sceneTemplate}
               bind:this={sceneTemplateInput}
               onblur={sceneTemplateChanged}
             />
@@ -256,35 +245,11 @@
             {pluralize(sceneCount, "word")}
           </p>
         {/if}
-        {#if draftCount}
-          <p title="Word count in just this draft of this project.">
-            <strong>Draft:</strong>
-            {pluralize(draftCount, "word")}
-          </p>
-        {/if}
-        <p title="Word count across all drafts of this project.">
+        <p title="Word count for this project.">
           <strong>Project:</strong>
           {pluralize(projectCount, "word")}
         </p>
       </div>
-    {/if}
-  </div>
-  <div class="longform-project-section">
-    <div class="drafts-title-container">
-      <button
-        type="button"
-        class="longform-project-details-section-header"
-        onclick={() => { showDrafts = !showDrafts; }}
-      >
-        <Disclosure collapsed={!showDrafts} />
-        <h4>Drafts</h4>
-      </button>
-      <button type="button" onclick={onNewDraft}>
-        <Icon iconName="plus-with-circle" />
-      </button>
-    </div>
-    {#if showDrafts}
-      <DraftList />
     {/if}
   </div>
 </div>
@@ -392,24 +357,5 @@
   .progress .value {
     height: 100%;
     background-color: var(--text-accent);
-  }
-
-  .drafts-title-container {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--size-4-2);
-  }
-
-  .drafts-title-container h4 {
-    margin-right: var(--size-4-2);
-  }
-
-  .drafts-title-container button {
-    margin: 0;
-    padding: var(--size-4-2);
-    color: var(--interactive-accent);
-    background-color: inherit;
   }
 </style>

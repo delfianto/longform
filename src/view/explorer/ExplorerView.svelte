@@ -1,7 +1,7 @@
 <script lang="ts">
   import CompileView from "../compile/CompileView.svelte";
 
-  import { selectedDraft } from "src/model/stores";
+  import { selectedProject } from "src/model/stores";
   import { selectedTab } from "../stores";
   import { waitingForSync } from "src/model/stores";
 
@@ -20,8 +20,8 @@
 
   $effect(() => {
     if (
-      $selectedDraft &&
-      $selectedDraft.format === "single" &&
+      $selectedProject &&
+      $selectedProject.format === "single" &&
       $selectedTab === "Scenes"
     ) {
       $selectedTab = "Project";
@@ -56,7 +56,7 @@
 {:else}
   <div class="longform-explorer">
     <ProjectPicker />
-    {#if $selectedDraft && $selectedDraft.format === "scenes"}
+    {#if $selectedProject && $selectedProject.format === "scenes"}
       <div>
         <div class="tabs">
           <div class="tab-list">

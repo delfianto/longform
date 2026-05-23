@@ -9,7 +9,7 @@ import {
 } from "obsidian";
 import type { CompileStatus, Workflow } from "src/compile";
 import { compile, CompileStepKind } from "src/compile";
-import type { Draft, MultipleSceneDraft } from "src/model/types";
+import type { MultipleSceneDraft } from "src/model/types";
 import AddStepModal from "../compile/add-step-modal";
 import ConfirmActionModal from "../ConfirmActionModal";
 import { ICON_NAME } from "../icon";
@@ -18,9 +18,8 @@ import { mount, unmount } from "svelte";
 import { scenePath } from "src/model/scene-navigation";
 import { migrate } from "src/model/migration";
 import { get } from "svelte/store";
-import { drafts, pluginSettings, selectedDraft } from "src/model/stores";
+import { projects, pluginSettings, selectedProject } from "src/model/stores";
 import { insertScene } from "src/model/draft-utils";
-import NewDraftModal from "src/view/project-lifecycle/new-draft-modal";
 import { UndoManager } from "../undo/undo-manager";
 import { ignoreScene } from "./scene-menu-items";
 import { appContext } from "../utils";
@@ -109,8 +108,8 @@ export class ExplorerPane extends ItemView {
     context.set("onNewScene", async (name: string, open: boolean) => {
       await insertScene(
         this.app,
-        drafts,
-        get(selectedDraft) as MultipleSceneDraft,
+        projects,
+        get(selectedProject) as MultipleSceneDraft,
         name,
         this.app.vault,
         { at: "end", relativeTo: null },
@@ -118,21 +117,8 @@ export class ExplorerPane extends ItemView {
       );
     });
 
-    // Context function for creating new draft folders given a path
-    context.set("onNewDraft", async (path: string, copying?: { from: string; to: string }[]) => {
-      if (copying) {
-        await this.app.vault.createFolder(path);
-        // do copy
-        for (const toCopy of copying) {
-          await this.app.vault.adapter.copy(toCopy.from, toCopy.to);
-        }
-      } else {
-        await this.app.vault.createFolder(path);
-      }
-    });
-
     const addRelativeScene = (at: "before" | "after", file: TAbstractFile) => {
-      const draft = get(selectedDraft) as MultipleSceneDraft;
+      const draft = get(selectedProject) as MultipleSceneDraft;
       let sceneName = "Untitled";
       let count = 0;
       const sceneNames = new Set(draft.scenes.map((s) => s.title));
@@ -146,7 +132,7 @@ export class ExplorerPane extends ItemView {
       if (relativeTo >= 0) {
         insertScene(
           this.app,
-          drafts,
+          projects,
           draft,
           sceneName,
           this.app.vault,
@@ -266,10 +252,6 @@ export class ExplorerPane extends ItemView {
 
     context.set("migrate", () => {
       migrate(get(pluginSettings), this.app);
-    });
-
-    context.set("showNewDraftModal", () => {
-      new NewDraftModal(this.app).open();
     });
 
     this.explorerView = mount(ExplorerView, {

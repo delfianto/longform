@@ -1,7 +1,7 @@
-import type { Draft, DraftWordCounts, WordCountSession } from "./types";
+import type { Project, ProjectWordCounts, WordCountSession } from "./types";
 import {
-  drafts as draftsStore,
-  draftWordCounts as draftWordCountsStore,
+  projects as projectsStore,
+  projectWordCounts as projectWordCountsStore,
   pluginSettings,
   sessions as sessionsStore,
 } from "src/model/stores";
@@ -55,7 +55,7 @@ function countWords(text: string, removeMarkdown = true, removeComments = true):
  */
 export class WritingSessionTracker {
   private vault: Vault;
-  private sessionStartCounts: DraftWordCounts | null = null;
+  private sessionStartCounts: ProjectWordCounts | null = null;
   private sessionStartDiffs: WordCountSession | null = null;
   private unsubscribeDrafts: Unsubscriber;
   private unsubscribeActiveWordCount: Unsubscriber;
@@ -86,7 +86,7 @@ export class WritingSessionTracker {
 
     sessionsStore.set(deserializedSessions);
 
-    this.unsubscribeDrafts = draftsStore.subscribe(this.countWordsInDrafts.bind(this));
+    this.unsubscribeDrafts = projectsStore.subscribe(this.countWordsInDrafts.bind(this));
 
     this.debouncedCountDraft = debounce(this.countDraftContaining.bind(this), 1000);
 
@@ -141,7 +141,7 @@ export class WritingSessionTracker {
     this.unsubscribeSessions();
   }
 
-  private async countWordsInDraft(draft: Draft): Promise<Record<string, number> | number> {
+  private async countWordsInDraft(draft: Project): Promise<Record<string, number> | number> {
     const countForPath = async (path: string) => {
       const file = this.vault.getAbstractFileByPath(path);
       if (file instanceof TFile) {
@@ -163,22 +163,22 @@ export class WritingSessionTracker {
     }
   }
 
-  async countWordsInDrafts(drafts: Draft[]) {
-    const counts: DraftWordCounts = {};
+  async countWordsInDrafts(drafts: Project[]) {
+    const counts: ProjectWordCounts = {};
 
     for (const draft of drafts) {
       counts[draft.vaultPath] = await this.countWordsInDraft(draft);
     }
 
-    draftWordCountsStore.set(counts);
+    projectWordCountsStore.set(counts);
     this.tickSession(counts);
   }
 
   private async countDraftContaining(file: TAbstractFile, oldPath: string | null) {
-    const draft = draftForPath(file.path, get(draftsStore));
+    const draft = draftForPath(file.path, get(projectsStore));
     if (draft) {
       const draftCount = await this.countWordsInDraft(draft);
-      draftWordCountsStore.update((counts) => {
+      projectWordCountsStore.update((counts) => {
         counts[draft.vaultPath] = draftCount;
         this.tickSession(counts);
         return counts;
@@ -187,10 +187,10 @@ export class WritingSessionTracker {
     }
 
     if (oldPath) {
-      const draft = draftForPath(oldPath, get(draftsStore));
+      const draft = draftForPath(oldPath, get(projectsStore));
       if (draft) {
         const draftCount = await this.countWordsInDraft(draft);
-        draftWordCountsStore.update((counts) => {
+        projectWordCountsStore.update((counts) => {
           counts[draft.vaultPath] = draftCount;
           this.tickSession(counts);
           return counts;
@@ -208,13 +208,13 @@ export class WritingSessionTracker {
     this.debouncedCountDraft(file, oldPath);
   }
 
-  startNewSession(counts: DraftWordCounts = undefined) {
-    const wordCounts = counts ?? get(draftWordCountsStore);
+  startNewSession(counts: ProjectWordCounts = undefined) {
+    const wordCounts = counts ?? get(projectWordCountsStore);
 
     const newSession: WordCountSession = {
       start: new Date(),
       total: 0,
-      drafts: {},
+      projects: {},
     };
 
     sessionsStore.update((s) => [newSession, ...s]);
@@ -226,9 +226,9 @@ export class WritingSessionTracker {
     return newSession;
   }
 
-  tickSession(counts: DraftWordCounts = undefined) {
+  tickSession(counts: ProjectWordCounts = undefined) {
     // compare dates to latest session to see if we should make a new one
-    const wordCounts = counts ?? get(draftWordCountsStore);
+    const wordCounts = counts ?? get(projectWordCountsStore);
 
     if (!wordCounts || Object.keys(wordCounts).length === 0) {
       return;
@@ -271,29 +271,29 @@ export class WritingSessionTracker {
     for (const vaultPath of Object.keys(wordCounts)) {
       const draftCount = wordCounts[vaultPath];
       const startCount = this.sessionStartCounts[vaultPath];
-      const startDiff = this.sessionStartDiffs.drafts[vaultPath];
+      const startDiff = this.sessionStartDiffs.projects[vaultPath];
       if (typeof draftCount === "number") {
         const startNum = typeof startCount === "number" ? startCount : null;
         const diff = startNum ? Math.max(draftCount - startNum, 0) : 0;
         if (startDiff) {
           const draftTotal = withDeletions(
             startDiff.total + diff,
-            session.drafts[vaultPath]?.total,
+            session.projects[vaultPath]?.total,
             this.countDeletions,
           );
           total += draftTotal;
-          session.drafts[vaultPath] = {
+          session.projects[vaultPath] = {
             total: draftTotal,
             scenes: {},
           };
         } else {
           const draftTotal = withDeletions(
             diff,
-            session.drafts[vaultPath]?.total,
+            session.projects[vaultPath]?.total,
             this.countDeletions,
           );
           total += draftTotal;
-          session.drafts[vaultPath] = {
+          session.projects[vaultPath] = {
             total: draftTotal,
             scenes: {},
           };
@@ -309,7 +309,7 @@ export class WritingSessionTracker {
           const startDiffScene = startDiff?.scenes[scene] ?? 0;
           const sceneTotal = withDeletions(
             startDiffScene + diff,
-            session.drafts[vaultPath]?.scenes[scene] ?? 0,
+            session.projects[vaultPath]?.scenes[scene] ?? 0,
             this.countDeletions,
           );
           draftTotal += sceneTotal;
@@ -317,7 +317,7 @@ export class WritingSessionTracker {
         }
         total += draftTotal;
 
-        session.drafts[vaultPath] = {
+        session.projects[vaultPath] = {
           total: draftTotal,
           scenes: newScenes,
         };

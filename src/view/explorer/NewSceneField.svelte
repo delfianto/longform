@@ -1,21 +1,21 @@
 <script lang="ts">
   import { getContext } from "svelte";
-  import { selectedDraft } from "src/model/stores";
+  import { selectedProject } from "src/model/stores";
   import { invalidFilenameCharacters, isValidFilename } from "../utils";
 
   let newSceneName = $state("");
   let newSceneInput: HTMLElement = $state(null);
 
   const sceneNames =
-    $selectedDraft?.format === "scenes"
-      ? $selectedDraft.scenes.map((s) => s.title)
+    $selectedProject?.format === "scenes"
+      ? $selectedProject.scenes.map((s) => s.title)
       : [];
 
   let error: string | null = $derived(
     newSceneName.length === 0
       ? null
       : sceneNames.contains(newSceneName)
-        ? "A scene with this name already exists in this draft."
+        ? "A scene with this name already exists in this project."
         : !isValidFilename(newSceneName)
           ? `A scene name cannot contain the characters: ${invalidFilenameCharacters()}`
           : null

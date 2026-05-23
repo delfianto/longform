@@ -20,7 +20,7 @@ import { get } from "svelte/store";
 import { VIEW_TYPE_LONGFORM_EXPLORER, ExplorerPane } from "./view/explorer/ExplorerPane";
 import {
   PASSTHROUGH_SAVE_SETTINGS_PATHS,
-  type Draft,
+  type Project,
   type LongformPluginSettings,
   type SerializedWorkflow,
   type WordCountSession,
@@ -35,12 +35,12 @@ import { DEFAULT_WORKFLOWS } from "./compile";
 import { UserScriptObserver } from "./model/user-script-observer";
 import { StoreVaultSync } from "./model/store-vault-sync";
 import {
-  selectedDraft,
-  selectedDraftVaultPath,
+  selectedProject,
+  selectedProjectPath,
   workflows,
   initialized,
   pluginSettings,
-  drafts,
+  projects,
   sessions,
 } from "./model/stores";
 import { addCommands } from "./commands";
@@ -61,8 +61,8 @@ export default class LongformPlugin extends Plugin {
   cachedSettings: LongformPluginSettings | null = null;
   private unsubscribeSettings: Unsubscriber;
   private unsubscribeWorkflows: Unsubscriber;
-  private unsubscribeDrafts: Unsubscriber;
-  private unsubscribeSelectedDraft: Unsubscriber;
+  private unsubscribeProjects: Unsubscriber;
+  private unsubscribeSelectedProject: Unsubscriber;
   private unsubscribeSessions: Unsubscriber;
   private unsubscribeGoalNotification: Unsubscriber;
   private userScriptObserver: UserScriptObserver;
@@ -149,8 +149,8 @@ export default class LongformPlugin extends Plugin {
         this.styleLongformLeaves();
       }),
     );
-    this.unsubscribeDrafts = drafts.subscribe((allDrafts) => {
-      this.styleLongformLeaves(allDrafts);
+    this.unsubscribeProjects = projects.subscribe((allProjects) => {
+      this.styleLongformLeaves(allProjects);
     });
 
     this.api = new LongformAPI();
@@ -161,8 +161,8 @@ export default class LongformPlugin extends Plugin {
     this.storeVaultSync.destroy();
     this.unsubscribeSettings();
     this.unsubscribeWorkflows();
-    this.unsubscribeSelectedDraft();
-    this.unsubscribeDrafts();
+    this.unsubscribeSelectedProject();
+    this.unsubscribeProjects();
     this.unsubscribeSessions();
     this.unsubscribeGoalNotification();
     this.writingSessionTracker.destroy();
@@ -181,7 +181,7 @@ export default class LongformPlugin extends Plugin {
       TRACKED_SETTINGS_PATHS,
     ) as LongformPluginSettings;
     pluginSettings.set(_pluginSettings);
-    selectedDraftVaultPath.set(_pluginSettings.selectedDraftVaultPath);
+    selectedProjectPath.set(_pluginSettings.selectedDraftVaultPath);
     determineMigrationStatus(_pluginSettings);
 
     // We load user scripts imperatively first to cover cases where we need to deserialize
@@ -217,9 +217,9 @@ export default class LongformPlugin extends Plugin {
       if (!file) {
         return false;
       }
-      const draft = draftForPath(file.path, get(drafts));
+      const draft = draftForPath(file.path, get(projects));
       if (draft) {
-        selectedDraftVaultPath.set(draft.vaultPath);
+        selectedProjectPath.set(draft.vaultPath);
         this.initLeaf();
         const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_LONGFORM_EXPLORER).first();
         if (leaf) {
@@ -295,13 +295,13 @@ export default class LongformPlugin extends Plugin {
     // Continue with the rest of initialization only after sync is complete
     this.watchProjects();
 
-    const defaultToScenes = once(function (d: Draft) {
+    const defaultToScenes = once(function (d: Project) {
       if (d && d.format === "scenes") {
         selectedTab.set("Scenes");
       }
     });
 
-    this.unsubscribeSelectedDraft = selectedDraft.subscribe(async (d) => {
+    this.unsubscribeSelectedProject = selectedProject.subscribe(async (d) => {
       if (!get(initialized) || !d) {
         return;
       }
@@ -383,19 +383,19 @@ export default class LongformPlugin extends Plugin {
     });
 
     this.unsubscribeGoalNotification = derived(
-      [goalProgress, pluginSettings, selectedDraft, activeFile],
+      [goalProgress, pluginSettings, selectedProject, activeFile],
       (stores) => stores,
-    ).subscribe(([$goalProgress, $pluginSettings, $selectedDraft, $activeFile]) => {
+    ).subscribe(([$goalProgress, $pluginSettings, $selectedProject, $activeFile]) => {
       if ($goalProgress >= 1 && $pluginSettings.notifyOnGoal) {
         let target: string;
         if ($pluginSettings.applyGoalTo === "all") {
           target = "all";
         } else if ($pluginSettings.applyGoalTo === "project") {
-          target = `draft::${$selectedDraft.vaultPath}`;
+          target = `project::${$selectedProject.vaultPath}`;
         } else if ($pluginSettings.applyGoalTo === "note") {
-          if ($selectedDraft && $selectedDraft.format === "single") {
-            target = `note::${$selectedDraft.vaultPath}`;
-          } else if ($selectedDraft && $selectedDraft.format === "scenes" && $activeFile) {
+          if ($selectedProject && $selectedProject.format === "single") {
+            target = `note::${$selectedProject.vaultPath}`;
+          } else if ($selectedProject && $selectedProject.format === "scenes" && $activeFile) {
             target = `note::${$activeFile.path}`;
           }
         }
@@ -503,10 +503,10 @@ export default class LongformPlugin extends Plugin {
     );
   }
 
-  private styleLongformLeaves(allDrafts: Draft[] = get(drafts)) {
+  private styleLongformLeaves(allProjects: Project[] = get(projects)) {
     this.app.workspace.getLeavesOfType("markdown").forEach((leaf) => {
       if (leaf.view instanceof FileView) {
-        const draft = draftForPath(leaf.view.file.path, allDrafts);
+        const draft = draftForPath(leaf.view.file.path, allProjects);
         if (draft) {
           leaf.view.containerEl.classList.add(LONGFORM_LEAF_CLASS);
         } else {

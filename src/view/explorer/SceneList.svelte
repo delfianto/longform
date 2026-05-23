@@ -7,9 +7,9 @@
   import { Keymap, Notice, Platform, type PaneType, TFile } from "obsidian";
 
   import { activeFile } from "../stores";
-  import { drafts, pluginSettings, selectedDraft } from "src/model/stores";
+  import { projects, pluginSettings, selectedProject } from "src/model/stores";
   import SortableList from "../sortable/SortableList.svelte";
-  import type { IndentedScene, MultipleSceneDraft } from "src/model/types";
+  import type { IndentedScene, MultipleSceneProject } from "src/model/types";
   import Disclosure from "../components/Disclosure.svelte";
   import { formatSceneNumber, numberScenes } from "src/model/draft-utils";
   import type { UndoManager } from "src/view/undo/undo-manager";
@@ -22,14 +22,14 @@
 
   let currentDraftIndex = $state(-1);
   $effect(() => {
-    if ($selectedDraft) {
-      currentDraftIndex = $drafts.findIndex(
-        (d) => d.vaultPath === $selectedDraft.vaultPath
+    if ($selectedProject) {
+      currentDraftIndex = $projects.findIndex(
+        (d) => d.vaultPath === $selectedProject.vaultPath
       );
     }
   });
 
-  const makeScenePath: (draft: MultipleSceneDraft, scene: string) => string =
+  const makeScenePath: (draft: MultipleSceneProject, scene: string) => string =
     getContext("makeScenePath");
 
   type SceneItem = {
@@ -46,8 +46,8 @@
   let collapsedItems: string[] = $state([]);
 
   let items: SceneItem[] = $derived(
-    $selectedDraft && $selectedDraft.format === "scenes"
-      ? itemsFromScenes($selectedDraft.scenes, collapsedItems)
+    $selectedProject && $selectedProject.format === "scenes"
+      ? itemsFromScenes($selectedProject.scenes, collapsedItems)
       : []
   );
 
@@ -75,7 +75,7 @@
       }
 
       const nextScene = index < scenes.length - 1 ? scenes[index + 1] : false;
-      const path = makeScenePath($selectedDraft as MultipleSceneDraft, title);
+      const path = makeScenePath($selectedProject as MultipleSceneProject, title);
       const file = app.vault.getAbstractFileByPath(path);
       let status = undefined;
       if (file && file instanceof TFile) {
@@ -120,16 +120,16 @@
   };
 
   function itemOrderChanged(newItems: SceneItem[]) {
-    if (currentDraftIndex >= 0 && $selectedDraft.format === "scenes") {
+    if (currentDraftIndex >= 0 && $selectedProject.format === "scenes") {
       const scenes: IndentedScene[] = newItems.map((d) => ({
         title: d.name,
         indent: d.name === draggingID ? draggingIndent : d.indent,
       }));
-      ($drafts[currentDraftIndex] as MultipleSceneDraft).scenes = scenes;
+      ($projects[currentDraftIndex] as MultipleSceneProject).scenes = scenes;
 
       sceneHistory = [
         {
-          draftVaultPath: $drafts[currentDraftIndex].vaultPath,
+          draftVaultPath: $projects[currentDraftIndex].vaultPath,
           scenes: cloneDeep(scenes),
         },
         ...sceneHistory,
@@ -220,11 +220,11 @@
     if (
       editingPath &&
       event.target instanceof HTMLElement &&
-      $selectedDraft.format === "scenes"
+      $selectedProject.format === "scenes"
     ) {
       const newName = event.target.innerText;
       if (event.key === "Enter") {
-        const newPath = scenePath(newName, $selectedDraft, app.vault);
+        const newPath = scenePath(newName, $selectedProject, app.vault);
         const file = app.vault.getAbstractFileByPath(editingPath);
         app.fileManager.renameFile(file, newPath);
         editingPath = null;
@@ -247,7 +247,7 @@
   }
 
   function doWithUnknown(fileName: string, action: "add" | "ignore") {
-    if (!$selectedDraft) return;
+    if (!$selectedProject) return;
     if (action === "add") {
       addScene(fileName);
     } else {
@@ -256,7 +256,7 @@
   }
 
   function doWithAll(action: "add" | "ignore") {
-    if (!$selectedDraft) return;
+    if (!$selectedProject) return;
     if (action === "add") {
       addAll();
     } else {
@@ -285,18 +285,18 @@
       oldIndex !== undoIndex &&
       newValue &&
       currentDraftIndex >= 0 &&
-      newValue.draftVaultPath === $drafts[currentDraftIndex].vaultPath &&
-      $drafts[currentDraftIndex].format === "scenes"
+      newValue.draftVaultPath === $projects[currentDraftIndex].vaultPath &&
+      $projects[currentDraftIndex].format === "scenes"
     ) {
       const newScenes = sceneHistory[undoIndex].scenes;
-      ($drafts[currentDraftIndex] as MultipleSceneDraft).scenes = newScenes;
+      ($projects[currentDraftIndex] as MultipleSceneProject).scenes = newScenes;
 
       new Notice(`${type === "undo" ? "Undid" : "Redid"} scene reordering`);
     }
     return false;
   });
 
-  const unsubscribe = selectedDraft.subscribe((draft) => {
+  const unsubscribe = selectedProject.subscribe((draft) => {
     if (!draft) {
       return;
     }
@@ -311,7 +311,7 @@
       sceneHistory = [
         {
           draftVaultPath: draft.vaultPath,
-          scenes: cloneDeep((draft as MultipleSceneDraft).scenes),
+          scenes: cloneDeep((draft as MultipleSceneProject).scenes),
         },
       ];
       undoIndex = 0;
@@ -384,11 +384,11 @@
       {/snippet}
     </SortableList>
   </div>
-  {#if $selectedDraft && $selectedDraft.format === "scenes" && $selectedDraft.unknownFiles.length > 0}
+  {#if $selectedProject && $selectedProject.format === "scenes" && $selectedProject.unknownFiles.length > 0}
     <div id="longform-unknown-files-wizard">
       <div class="longform-unknown-inner">
         <p class="longform-unknown-explanation">
-          Longform has found {$selectedDraft.unknownFiles.length} new file{$selectedDraft
+          Longform has found {$selectedProject.unknownFiles.length} new file{$selectedProject
             .unknownFiles.length === 1
             ? ""
             : "s"} in your scenes folder.
@@ -403,7 +403,7 @@
           >
         </div>
         <ul>
-          {#each $selectedDraft.unknownFiles as fileName}
+          {#each $selectedProject.unknownFiles as fileName}
             <li>
               <div class="longform-unknown-file">
                 <span>{fileName}</span>

@@ -1,14 +1,10 @@
 import { App, TFile, Vault } from "obsidian";
 import { get, type Writable } from "svelte/store";
 
-import type { Draft, IndentedScene, MultipleSceneDraft } from "./types";
+import type { Project, IndentedScene, MultipleSceneProject } from "./types";
 import { scenePath } from "src/model/scene-navigation";
 import { createNoteWithPotentialTemplate } from "./note-utils";
 import { pluginSettings } from "./stores";
-
-export function draftTitle(draft: Draft): string {
-  return draft.draftTitle ?? draft.vaultPath;
-}
 
 type SceneInsertionLocation = {
   at: "before" | "after" | "end";
@@ -19,10 +15,10 @@ export async function createScene(
   app: App,
   path: string,
   index: number,
-  draft: MultipleSceneDraft,
+  project: MultipleSceneProject,
   open: boolean,
 ): Promise<void> {
-  const template = draft.sceneTemplate ?? get(pluginSettings).sceneTemplate;
+  const template = project.sceneTemplate ?? get(pluginSettings).sceneTemplate;
   const note = await createNoteWithPotentialTemplate(app, path, template);
   if (note === null) return;
 
@@ -39,83 +35,78 @@ export async function createScene(
 
 export async function insertScene(
   app: App,
-  draftsStore: Writable<Draft[]>,
-  draft: MultipleSceneDraft,
+  projectsStore: Writable<Project[]>,
+  project: MultipleSceneProject,
   sceneName: string,
   vault: Vault,
   location: SceneInsertionLocation,
   open: boolean,
 ) {
-  const newScenePath = scenePath(sceneName, draft, vault);
+  const newScenePath = scenePath(sceneName, project, vault);
 
-  if (!newScenePath || !draft || draft.format !== "scenes") {
+  if (!newScenePath || !project || project.format !== "scenes") {
     return;
   }
 
-  draftsStore.update((allDrafts) => {
-    return allDrafts.map((d) => {
-      if (d.vaultPath === draft.vaultPath && d.format === "scenes") {
+  projectsStore.update((allProjects) => {
+    return allProjects.map((p) => {
+      if (p.vaultPath === project.vaultPath && p.format === "scenes") {
         if (location.at === "end") {
-          d.scenes = [...d.scenes, { title: sceneName, indent: 0 }];
+          p.scenes = [...p.scenes, { title: sceneName, indent: 0 }];
         } else {
-          const relativeScene = d.scenes[location.relativeTo];
+          const relativeScene = p.scenes[location.relativeTo];
           const index = location.at === "before" ? location.relativeTo : location.relativeTo + 1;
-          d.scenes.splice(index, 0, {
+          p.scenes.splice(index, 0, {
             title: sceneName,
             indent: relativeScene.indent,
           });
         }
       }
-      return d;
+      return p;
     });
   });
 
   await createScene(
     app,
     newScenePath,
-    draft.scenes.findIndex((s) => s.title === sceneName),
-    draft,
+    project.scenes.findIndex((s) => s.title === sceneName),
+    project,
     open,
   );
 }
 
-export function setDraftOnFrontmatterObject(obj: Record<string, any>, draft: Draft) {
+export function setProjectFrontmatter(obj: Record<string, any>, project: Project) {
   obj["longform"] = {};
-  obj["longform"]["format"] = draft.format;
-  if (draft.titleInFrontmatter) {
-    obj["longform"]["title"] = draft.title;
+  obj["longform"]["format"] = project.format;
+  if (project.titleInFrontmatter) {
+    obj["longform"]["title"] = project.title;
   }
-  if (draft.draftTitle) {
-    obj["longform"]["draftTitle"] = draft.draftTitle;
-  }
-  if (draft.workflow) {
-    obj["longform"]["workflow"] = draft.workflow;
+  if (project.workflow) {
+    obj["longform"]["workflow"] = project.workflow;
   }
 
-  if (draft.format === "scenes") {
-    obj["longform"]["sceneFolder"] = draft.sceneFolder;
-    obj["longform"]["scenes"] = indentedScenesToArrays(draft.scenes);
-    if (draft.sceneTemplate) {
-      obj["longform"]["sceneTemplate"] = draft.sceneTemplate;
+  if (project.format === "scenes") {
+    obj["longform"]["sceneFolder"] = project.sceneFolder;
+    obj["longform"]["scenes"] = indentedScenesToArrays(project.scenes);
+    if (project.sceneTemplate) {
+      obj["longform"]["sceneTemplate"] = project.sceneTemplate;
     }
-    obj["longform"]["ignoredFiles"] = draft.ignoredFiles;
+    obj["longform"]["ignoredFiles"] = project.ignoredFiles;
   }
 }
 
+// Legacy alias used by store-vault-sync
+export const setDraftOnFrontmatterObject = setProjectFrontmatter;
+
 export function indentedScenesToArrays(indented: IndentedScene[]) {
   const result: any = [];
-  // track our current indentation level
   let currentIndent = 0;
-  // array for the current indentation level
   let currentNesting = result;
-  // memoized arrays so that later, lesser indents can use earlier-created array
   const nestingAt: Record<number, any> = {};
   nestingAt[0] = currentNesting;
 
   indented.forEach(({ title, indent }) => {
     if (indent > currentIndent) {
-      // we're at a deeper indentation level than current,
-      // so build up a nest and memoize it
       while (currentIndent < indent) {
         currentIndent = currentIndent + 1;
         const newNesting: any = [];
@@ -124,13 +115,10 @@ export function indentedScenesToArrays(indented: IndentedScene[]) {
         currentNesting = newNesting;
       }
     } else if (indent < currentIndent) {
-      // we're at a lesser indentation level than current,
-      // so drop back to previously memoized nesting
       currentNesting = nestingAt[indent];
       currentIndent = indent;
     }
 
-    // actually insert the value
     currentNesting.push(title);
   });
   return result;
@@ -194,7 +182,7 @@ export function formatSceneNumber(numbering: number[]): string {
   return numbering.join(".");
 }
 
-export async function insertDraftIntoFrontmatter(app: App, path: string, draft: Draft) {
+export async function insertProjectFrontmatter(app: App, path: string, project: Project) {
   const exists = await app.vault.adapter.exists(path);
   if (!exists) {
     await app.vault.create(path, "");
@@ -202,14 +190,16 @@ export async function insertDraftIntoFrontmatter(app: App, path: string, draft: 
 
   const file = app.vault.getAbstractFileByPath(path);
   if (!(file instanceof TFile)) {
-    // TODO: error?
     return;
   }
   try {
     await app.fileManager.processFrontMatter(file, (fm) => {
-      setDraftOnFrontmatterObject(fm, draft);
+      setProjectFrontmatter(fm, project);
     });
   } catch (error) {
-    console.error("[Longform] insertDraftIntoFrontmatter: processFrontMatter error:", error);
+    console.error("[Longform] insertProjectFrontmatter: processFrontMatter error:", error);
   }
 }
+
+// Legacy alias
+export const insertDraftIntoFrontmatter = insertProjectFrontmatter;

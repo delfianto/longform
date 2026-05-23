@@ -1,12 +1,12 @@
 import { last } from "lodash";
 import { App, normalizePath } from "obsidian";
 import { writable } from "svelte/store";
-import { insertDraftIntoFrontmatter } from "./draft-utils";
+import { insertProjectFrontmatter } from "./draft-utils";
 import { pluginSettings } from "./stores";
 import {
   LONGFORM_CURRENT_PLUGIN_DATA_VERSION,
   type LongformPluginSettings,
-  type MultipleSceneDraft,
+  type MultipleSceneProject,
 } from "./types";
 
 const INDEX_MIGRATION_NOTICE =
@@ -71,11 +71,10 @@ export async function migrate(settings: LongformPluginSettings, app: App) {
         if (drafts.length === 1) {
           const oldDraft = drafts[0];
           const vaultPath = normalizePath(`${projectPath}/${title}.md`);
-          const draft: MultipleSceneDraft = {
+          const draft: MultipleSceneProject = {
             format: "scenes",
             title,
             titleInFrontmatter: false,
-            draftTitle: null,
             vaultPath,
             workflow,
             sceneFolder: "/",
@@ -88,7 +87,7 @@ export async function migrate(settings: LongformPluginSettings, app: App) {
             sceneTemplate: null,
           };
 
-          await insertDraftIntoFrontmatter(app, vaultPath, draft);
+          await insertProjectFrontmatter(app, vaultPath, draft);
           await moveScenes(
             normalizePath(`${projectPath}/${project.draftsPath}/${oldDraft.folder}/`),
             normalizedProjectPath,
@@ -103,11 +102,10 @@ export async function migrate(settings: LongformPluginSettings, app: App) {
               console.log(`[Longform] Error creating folder during migration`, error);
             }
             const vaultPath = normalizePath(`${vaultPathParent}/${oldDraft.name}.md`);
-            const draft: MultipleSceneDraft = {
+            const draft: MultipleSceneProject = {
               format: "scenes",
               title,
               titleInFrontmatter: true,
-              draftTitle: oldDraft.name,
               vaultPath,
               workflow,
               sceneFolder: "/",
@@ -120,7 +118,7 @@ export async function migrate(settings: LongformPluginSettings, app: App) {
               sceneTemplate: null,
             };
 
-            await insertDraftIntoFrontmatter(app, vaultPath, draft);
+            await insertProjectFrontmatter(app, vaultPath, draft);
             await moveScenes(
               normalizePath(`${projectPath}/${project.draftsPath}/${oldDraft.folder}/`),
               vaultPathParent,

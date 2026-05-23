@@ -1,51 +1,33 @@
 <script lang="ts">
   import {
-    projects,
-    selectedDraftVaultPath,
-    selectedProjectHasMultipleDrafts,
+    projectsByTitle,
+    selectedProjectPath,
     selectedProject,
-    selectedDraft,
   } from "../../model/stores";
-  import { last } from "lodash";
   import { getContext } from "svelte";
-  import { draftTitle } from "src/model/draft-utils";
   import { Keymap, type PaneType } from "obsidian";
 
   const openFileAtPath: (path: string, paneType: PaneType | boolean) => void =
     getContext("onSceneClick");
 
-  let projectOptions = $derived(Object.keys($projects));
-
-  let draftOptions = $derived(
-    $selectedProject
-      ? $selectedProject.map((d) => ({
-          path: d.vaultPath,
-          title: draftTitle(d),
-        }))
-      : []
-  );
+  let projectOptions = $derived(Object.keys($projectsByTitle));
 
   function projectSelected(event: Event) {
     // @ts-ignore
     const title = event.target.value;
-    if ($selectedDraft && title === $selectedDraft.title) {
+    if ($selectedProject && title === $selectedProject.title) {
       return;
     }
-    const newProject = $projects[title];
-    let draftPath: string;
-    if (newProject && newProject.length > 1) {
-      draftPath = last(newProject).vaultPath;
-    } else {
-      draftPath = newProject[0].vaultPath;
-      if (newProject[0].format === "single") {
-        openFileAtPath(draftPath, false);
-      }
+    const project = $projectsByTitle[title];
+    if (!project) return;
+    $selectedProjectPath = project.vaultPath;
+    if (project.format === "single") {
+      openFileAtPath(project.vaultPath, false);
     }
-    $selectedDraftVaultPath = draftPath;
   }
 
-  function onDraftClick(e: MouseEvent) {
-    openFileAtPath($selectedDraft.vaultPath, Keymap.isModEvent(e));
+  function onProjectClick(e: MouseEvent) {
+    openFileAtPath($selectedProject.vaultPath, Keymap.isModEvent(e));
   }
 </script>
 
@@ -56,29 +38,18 @@
         <select
           name="projects"
           class="dropdown"
-          value={$selectedDraft ? $selectedDraft.title : projectOptions[0]}
+          value={$selectedProject ? $selectedProject.title : projectOptions[0]}
           onchange={projectSelected}
         >
           {#each projectOptions as projectOption}
-            <option class="projectOption" value={projectOption}
-              >{projectOption}</option
-            >
+            <option class="projectOption" value={projectOption}>{projectOption}</option>
           {/each}
         </select>
       </div>
-      {#if $selectedProjectHasMultipleDrafts}
-        <div class="select" id="select-drafts">
-          <select name="drafts" bind:value={$selectedDraftVaultPath}>
-            {#each draftOptions as draftOption}
-              <option value={draftOption.path}>{draftOption.title}</option>
-            {/each}
-          </select>
-        </div>
-      {/if}
     </div>
-    {#if $selectedDraft}
-      <button type="button" class="current-draft-path" onclick={(e) => onDraftClick(e)}>
-        {$selectedDraft.vaultPath}
+    {#if $selectedProject}
+      <button type="button" class="current-project-path" onclick={(e) => onProjectClick(e)}>
+        {$selectedProject.vaultPath}
       </button>
     {/if}
   {:else}
@@ -120,24 +91,22 @@
       border 0.15s ease-in-out;
   }
 
-  .current-draft-path {
+  .current-project-path {
     color: var(--text-faint);
     font-size: var(--font-smallest);
     padding: 0 0 var(--size-4-1) var(--size-4-3);
     background: none;
     border: none;
+    box-shadow: none;
+    outline: none;
     display: block;
     width: 100%;
     text-align: left;
     font-family: inherit;
   }
 
-  .current-draft-path:hover {
+  .current-project-path:hover {
     color: var(--text-accent);
     cursor: pointer;
-  }
-
-  #select-drafts {
-    margin-top: var(--size-4-1);
   }
 </style>

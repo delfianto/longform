@@ -1,6 +1,6 @@
 <script lang="ts">
   import {
-    selectedDraft,
+    selectedProject,
     workflows,
     currentWorkflow,
     userScriptSteps,
@@ -26,7 +26,7 @@
         { ...step, id: `${step.id}-${Date.now()}` },
       ],
     } as Workflow;
-    const currentWorkflowName = $selectedDraft.workflow;
+    const currentWorkflowName = $selectedProject.workflow;
     $workflows[currentWorkflowName] = newWorkflow;
     close();
   }

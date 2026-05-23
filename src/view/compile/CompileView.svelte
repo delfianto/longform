@@ -14,15 +14,15 @@
   } from "src/compile";
   import { getContext } from "svelte";
   import {
-    drafts,
-    selectedDraft,
+    projects,
+    selectedProject,
     workflows,
     currentWorkflow,
   } from "src/model/stores";
   import CompileStepView from "./CompileStepView.svelte";
   import SortableList from "../sortable/SortableList.svelte";
   import AutoTextArea from "../components/AutoTextArea.svelte";
-  import type { Draft } from "src/model/types";
+  import type { Project } from "src/model/types";
 
   let workflowContextButton: HTMLElement = $state(null);
   let workflowInputState: "hidden" | "new" | "rename" = $state("hidden");
@@ -41,8 +41,8 @@
   ) => void = getContext("showConfirmModal");
 
   let currentDraftIndex = $derived(
-    $selectedDraft
-      ? $drafts.findIndex((d) => d.vaultPath === $selectedDraft.vaultPath)
+    $selectedProject
+      ? $projects.findIndex((d) => d.vaultPath === $selectedProject.vaultPath)
       : -1
   );
 
@@ -51,19 +51,19 @@
   });
 
   $effect(() => {
-    if ($selectedDraft) {
-      currentWorkflowName = $selectedDraft.workflow;
+    if ($selectedProject) {
+      currentWorkflowName = $selectedProject.workflow;
 
       if (
         !isDeletingWorkflow &&
-        $selectedDraft &&
+        $selectedProject &&
         !currentWorkflowName &&
         allWorkflowNames.length > 0
       ) {
-        const _currentDraftIndex = $drafts.findIndex(
-          (d) => d.vaultPath === $selectedDraft.vaultPath
+        const _currentDraftIndex = $projects.findIndex(
+          (d) => d.vaultPath === $selectedProject.vaultPath
         );
-        $drafts[_currentDraftIndex].workflow = allWorkflowNames[0];
+        $projects[_currentDraftIndex].workflow = allWorkflowNames[0];
       }
     }
   });
@@ -71,7 +71,7 @@
   function selectedWorkflow(event: Event) {
     // @ts-ignore
     const title = event.target.value;
-    $drafts[currentDraftIndex].workflow = title;
+    $projects[currentDraftIndex].workflow = title;
   }
 
   const showCompileActionsMenu: (
@@ -98,9 +98,9 @@
           const toDelete = currentWorkflowName;
           const remaining = allWorkflowNames.filter((n) => n != toDelete);
           if (remaining.length > 0) {
-            $drafts[currentDraftIndex].workflow = remaining[0];
+            $projects[currentDraftIndex].workflow = remaining[0];
           } else {
-            $drafts[currentDraftIndex].workflow = null;
+            $projects[currentDraftIndex].workflow = null;
           }
 
           $workflows = delete $workflows[toDelete] && $workflows;
@@ -128,7 +128,7 @@
       $workflows[workflowInputValue] = workflow;
       $workflows = delete $workflows[currentWorkflowName] && $workflows;
     }
-    $drafts[currentDraftIndex].workflow = workflowInputValue;
+    $projects[currentDraftIndex].workflow = workflowInputValue;
     workflowInputValue = "";
     workflowInputState = "hidden";
   }
@@ -153,7 +153,7 @@
     if ($currentWorkflow) {
       [validation, calculatedKinds] = calculateWorkflow(
         $currentWorkflow,
-        $selectedDraft.format === "scenes"
+        $selectedProject.format === "scenes"
       );
     } else {
       validation = VALID;
@@ -233,14 +233,14 @@
   }
 
   const compile: (
-    draft: Draft,
+    draft: Project,
     workflow: Workflow,
     kinds: CompileStepKind[],
     statusCallback: (status: CompileStatus) => void
   ) => Vault = getContext("compile");
   function doCompile() {
     compile(
-      $selectedDraft,
+      $selectedProject,
       $currentWorkflow,
       calculatedKinds,
       onCompileStatusChange
@@ -248,7 +248,7 @@
   }
 </script>
 
-{#if $selectedDraft}
+{#if $selectedProject}
   <div class="longform-compile-container">
     <div class="longform-workflow-picker-container">
       <div class="longform-workflow-picker">
@@ -278,7 +278,7 @@
             <div class="select">
               <select
                 id="longform-workflows"
-                value={$selectedDraft.workflow}
+                value={$selectedProject.workflow}
                 onchange={selectedWorkflow}
               >
                 {#each allWorkflowNames as workflowOption}

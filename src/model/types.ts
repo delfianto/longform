@@ -6,11 +6,10 @@ export type IndentedScene = {
   indent: number;
 };
 
-export type MultipleSceneDraft = {
+export type MultipleSceneProject = {
   format: "scenes";
   title: string;
   titleInFrontmatter: boolean;
-  draftTitle: string | null;
   vaultPath: string;
   workflow: string | null;
   sceneFolder: string;
@@ -20,16 +19,20 @@ export type MultipleSceneDraft = {
   sceneTemplate: string | null;
 };
 
-export type SingleSceneDraft = {
+export type SingleSceneProject = {
   format: "single";
   title: string;
   titleInFrontmatter: boolean;
-  draftTitle: string | null;
   vaultPath: string;
   workflow: string | null;
 };
 
-export type Draft = MultipleSceneDraft | SingleSceneDraft;
+export type Project = MultipleSceneProject | SingleSceneProject;
+
+// Legacy type aliases — kept so compile steps and API callers don't all need updating at once.
+export type Draft = Project;
+export type MultipleSceneDraft = MultipleSceneProject;
+export type SingleSceneDraft = SingleSceneProject;
 
 export type SerializedStep = {
   id: string;
@@ -43,36 +46,22 @@ export type SerializedWorkflow = {
 };
 
 /**
- * Draft vault paths to either a map of scene names to word counts or,
- * in the case of single-scene drafts, the word count.
+ * Maps project vault paths to either a map of scene names to word counts or,
+ * in the case of single-scene projects, the word count.
  */
-export type DraftWordCounts = Record<string, Record<string, number> | number>;
+export type ProjectWordCounts = Record<string, Record<string, number> | number>;
+
+// Legacy alias
+export type DraftWordCounts = ProjectWordCounts;
 
 export type WordCountSession = {
-  /**
-   * Start date for this session.
-   */
   start: Date;
-
-  /**
-   * Total number of words written in this session.
-   */
   total: number;
-
-  /**
-   * Stats in this session per draft.
-   */
-  drafts: Record<
+  /** Keyed by vault path of the project. */
+  projects: Record<
     string,
     {
-      /**
-       * Total words written in this draft in this session.
-       */
       total: number;
-
-      /**
-       * Stats in this session per scene.
-       */
       scenes: Record<string, number>;
     }
   >;
@@ -80,7 +69,7 @@ export type WordCountSession = {
 
 export interface LongformPluginSettings {
   version: number;
-  selectedDraftVaultPath: string | null;
+  selectedProjectPath: string | null;
   workflows: Record<string, SerializedWorkflow> | null;
   userScriptFolder: string | null;
   sessionStorage: "data" | "plugin-folder" | "file";
@@ -112,7 +101,7 @@ export const DEFAULT_SESSION_FILE = "longform-sessions.json";
 
 export const DEFAULT_SETTINGS: LongformPluginSettings = {
   version: LONGFORM_CURRENT_PLUGIN_DATA_VERSION,
-  selectedDraftVaultPath: null,
+  selectedProjectPath: null,
   workflows: null,
   userScriptFolder: null,
   sessionStorage: "data",
@@ -137,7 +126,7 @@ export const DEFAULT_SETTINGS: LongformPluginSettings = {
 export const TRACKED_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
   "version",
   "projects",
-  "selectedDraftVaultPath",
+  "selectedProjectPath",
   "userScriptFolder",
   "sessionStorage",
   "sessions",

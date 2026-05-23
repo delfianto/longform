@@ -9,12 +9,12 @@ import {
 import { cloneDeep, isEqual } from "lodash";
 import { get, type Unsubscriber } from "svelte/store";
 
-import type { Draft } from "./types";
+import type { Project } from "./types";
 import {
-  drafts as draftsStore,
+  projects as projectsStore,
   pluginSettings,
   waitingForSync,
-  selectedDraftVaultPath,
+  selectedProjectPath,
 } from "./stores";
 import {
   arraysToIndentedScenes,
@@ -57,8 +57,8 @@ export class StoreVaultSync {
   private isInitializing = true;
   private settlingTime = 30000; // fallback settling time
 
-  private lastKnownDraftsByPath: Record<string, Draft> = {};
-  private unsubscribeDraftsStore: Unsubscriber;
+  private lastKnownProjectsByPath: Record<string, Project> = {};
+  private unsubscribeProjectsStore: Unsubscriber;
 
   private pathsToIgnoreNextChange: Set<string> = new Set();
 
@@ -69,7 +69,7 @@ export class StoreVaultSync {
   }
 
   destroy(): void {
-    this.unsubscribeDraftsStore();
+    this.unsubscribeProjectsStore();
   }
 
   private isSyncEnabled(): boolean {
@@ -162,35 +162,34 @@ export class StoreVaultSync {
 
     const files = this.vault.getMarkdownFiles();
     const resolvedFiles = files.map((f) => resolveIfLongformFile(this.metadataCache, f));
-    const draftFiles = resolvedFiles.filter((f) => f !== null);
+    const projectFiles = resolvedFiles.filter((f) => f !== null);
 
-    const possibleDrafts = await Promise.all(draftFiles.map((f) => this.draftFor(f)));
-    const drafts = possibleDrafts.filter((d) => d !== null);
+    const possibleProjects = await Promise.all(projectFiles.map((f) => this.draftFor(f)));
+    const loadedProjects = possibleProjects.filter((d) => d !== null);
 
-    // Write dirty drafts back to their index files
-    const dirtyDrafts = drafts.filter((d) => d.dirty);
-    for (const d of dirtyDrafts) {
+    // Write dirty projects back to their index files
+    const dirtyProjects = loadedProjects.filter((d) => d.dirty);
+    for (const d of dirtyProjects) {
       await this.writeDraftFrontmatter(d.draft);
     }
 
-    // Write discovered drafts to draft store
-    const draftsToWrite = drafts.map((d) => d.draft);
+    const projectsToWrite = loadedProjects.map((d) => d.draft);
 
-    this.lastKnownDraftsByPath = cloneDeep(
-      draftsToWrite.reduce((acc: Record<string, Draft>, d) => {
-        acc[d.vaultPath] = d;
+    this.lastKnownProjectsByPath = cloneDeep(
+      projectsToWrite.reduce((acc: Record<string, Project>, p) => {
+        acc[p.vaultPath] = p;
         return acc;
       }, {}),
     );
-    draftsStore.set(draftsToWrite);
+    projectsStore.set(projectsToWrite);
 
-    const message = `[Longform] Loaded and watching projects. Found ${
-      draftFiles.length
-    } drafts in ${(new Date().getTime() - start) / 1000.0}s.`;
+    console.log(
+      `[Longform] Loaded and watching projects. Found ${projectFiles.length} projects in ${
+        (new Date().getTime() - start) / 1000.0
+      }s.`,
+    );
 
-    console.log(message);
-
-    this.unsubscribeDraftsStore = draftsStore.subscribe(this.draftsStoreChanged.bind(this));
+    this.unsubscribeProjectsStore = projectsStore.subscribe(this.draftsStoreChanged.bind(this));
   }
 
   async fileMetadataChanged(file: TFile, _data: string, cache: CachedMetadata) {
@@ -201,111 +200,92 @@ export class StoreVaultSync {
 
     const result = await this.draftFor({ file, metadata: cache });
     if (!result) {
-      const testDeletedDraft = this.lastKnownDraftsByPath[file.path];
-      if (testDeletedDraft) {
-        // a draft's YAML was removed, remove it from drafts
-        draftsStore.update((drafts) => {
-          return drafts.filter((d) => d.vaultPath !== file.path);
-        });
+      const deleted = this.lastKnownProjectsByPath[file.path];
+      if (deleted) {
+        projectsStore.update((ps) => ps.filter((p) => p.vaultPath !== file.path));
       }
       return;
     }
 
     const { draft } = result;
 
-    const old = this.lastKnownDraftsByPath[draft.vaultPath];
+    const old = this.lastKnownProjectsByPath[draft.vaultPath];
     if (!old || !isEqual(draft, old)) {
-      this.lastKnownDraftsByPath[draft.vaultPath] = draft;
-      draftsStore.update((drafts) => {
-        const indexOfDraft = drafts.findIndex((d) => d.vaultPath === draft.vaultPath);
-        if (indexOfDraft < 0) {
-          //new draft
-          drafts.push(draft);
+      this.lastKnownProjectsByPath[draft.vaultPath] = draft;
+      projectsStore.update((ps) => {
+        const idx = ps.findIndex((p) => p.vaultPath === draft.vaultPath);
+        if (idx < 0) {
+          ps.push(draft);
         } else {
-          drafts[indexOfDraft] = draft;
+          ps[idx] = draft;
         }
-        return drafts;
+        return ps;
       });
     }
   }
 
   async fileCreated(file: TFile) {
     if (this.isInitializing) return;
-    const drafts = get(draftsStore);
+    const ps = get(projectsStore);
 
-    // check if a new scene has been moved into this folder
     const scenePath = file.parent.path;
-    const memberOfDraft = drafts.find((d) => {
-      if (d.format !== "scenes") {
-        return false;
-      }
-      const parentPath = this.vault.getAbstractFileByPath(d.vaultPath).parent.path;
-      const targetPath = normalizePath(`${parentPath}/${d.sceneFolder}`);
-      return (
-        // file is in the scene folder
-        targetPath === scenePath &&
-        // file isn't already a scene
-        !d.scenes.map((s) => s.title).contains(file.basename)
-      );
+    const memberProject = ps.find((p) => {
+      if (p.format !== "scenes") return false;
+      const parentPath = this.vault.getAbstractFileByPath(p.vaultPath).parent.path;
+      const targetPath = normalizePath(`${parentPath}/${p.sceneFolder}`);
+      return targetPath === scenePath && !p.scenes.map((s) => s.title).contains(file.basename);
     });
-    if (memberOfDraft) {
-      draftsStore.update((allDrafts) => {
-        return allDrafts.map((d) => {
+    if (memberProject) {
+      projectsStore.update((all) =>
+        all.map((p) => {
           if (
-            d.vaultPath === memberOfDraft.vaultPath &&
-            d.format === "scenes" &&
-            !d.unknownFiles.contains(file.basename)
+            p.vaultPath === memberProject.vaultPath &&
+            p.format === "scenes" &&
+            !p.unknownFiles.contains(file.basename)
           ) {
-            d.unknownFiles.push(file.basename);
+            p.unknownFiles.push(file.basename);
           }
-          return d;
-        });
-      });
+          return p;
+        }),
+      );
     }
   }
 
   async fileDeleted(file: TFile) {
     if (this.isInitializing) return;
-    const drafts = get(draftsStore);
-    const draftIndex = drafts.findIndex((d) => d.vaultPath === file.path);
-    if (draftIndex >= 0) {
-      // index file deletion = delete draft from store
-      const newDrafts = cloneDeep(drafts);
-      newDrafts.splice(draftIndex, 1);
-      draftsStore.set(newDrafts);
-      if (get(selectedDraftVaultPath) === file.path) {
-        if (newDrafts.length > 0) {
-          selectedDraftVaultPath.set(newDrafts[0].vaultPath);
-        } else {
-          selectedDraftVaultPath.set(null);
-        }
+    const ps = get(projectsStore);
+    const projectIndex = ps.findIndex((p) => p.vaultPath === file.path);
+    if (projectIndex >= 0) {
+      const remaining = cloneDeep(ps);
+      remaining.splice(projectIndex, 1);
+      projectsStore.set(remaining);
+      if (get(selectedProjectPath) === file.path) {
+        selectedProjectPath.set(remaining.length > 0 ? remaining[0].vaultPath : null);
       }
     } else {
-      // scene deletion = remove scene from draft
-      const found = findScene(file.path, drafts);
+      const found = findScene(file.path, ps);
       if (found) {
-        draftsStore.update((_drafts) => {
-          return _drafts.map((d) => {
-            if (d.vaultPath === found.draft.vaultPath && d.format === "scenes") {
-              d.scenes.splice(found.index, 1);
+        projectsStore.update((all) =>
+          all.map((p) => {
+            if (p.vaultPath === found.draft.vaultPath && p.format === "scenes") {
+              p.scenes.splice(found.index, 1);
             }
-            return d;
-          });
-        });
-      } else {
-        // check unknown files, delete from there if present
-        const inDraftUnknown = drafts.find(
-          (d) => d.format === "scenes" && d.unknownFiles.contains(file.basename),
+            return p;
+          }),
         );
-        if (inDraftUnknown) {
-          draftsStore.update((allDrafts) => {
-            return allDrafts.map((d) => {
-              if (d.vaultPath === inDraftUnknown.vaultPath && d.format === "scenes") {
-                d.unknownFiles = d.unknownFiles.filter((f) => f !== file.basename);
+      } else {
+        const ownerProject = ps.find(
+          (p) => p.format === "scenes" && p.unknownFiles.contains(file.basename),
+        );
+        if (ownerProject) {
+          projectsStore.update((all) =>
+            all.map((p) => {
+              if (p.vaultPath === ownerProject.vaultPath && p.format === "scenes") {
+                p.unknownFiles = p.unknownFiles.filter((f) => f !== file.basename);
               }
-              return d;
-            });
-          });
+              return p;
+            }),
+          );
         }
       }
     }
@@ -313,103 +293,91 @@ export class StoreVaultSync {
 
   async fileRenamed(file: TFile, oldPath: string) {
     if (this.isInitializing) return;
-    const drafts = get(draftsStore);
-    const draftIndex = drafts.findIndex((d) => d.vaultPath === oldPath);
-    if (draftIndex >= 0) {
-      // index file renamed
-      draftsStore.update((_drafts) => {
-        const d = _drafts[draftIndex];
-        d.vaultPath = file.path;
-        if (!d.titleInFrontmatter) {
-          d.title = fileNameFromPath(file.path);
+    const ps = get(projectsStore);
+    const projectIndex = ps.findIndex((p) => p.vaultPath === oldPath);
+    if (projectIndex >= 0) {
+      projectsStore.update((all) => {
+        const p = all[projectIndex];
+        p.vaultPath = file.path;
+        if (!p.titleInFrontmatter) {
+          p.title = fileNameFromPath(file.path);
         }
-        _drafts[draftIndex] = d;
-        return _drafts;
+        all[projectIndex] = p;
+        return all;
       });
-      if (get(selectedDraftVaultPath) === oldPath) {
-        selectedDraftVaultPath.set(file.path);
+      if (get(selectedProjectPath) === oldPath) {
+        selectedProjectPath.set(file.path);
       }
     } else {
-      // scene renamed
       const newTitle = fileNameFromPath(file.path);
-      const foundOld = findScene(oldPath, drafts);
-
-      // possibilities here:
-      // 1. note was renamed in-place: rename the scene in the associated draft
-      // 2. note was moved out of a draft: remove it from the old draft
-      // 3. note was moved into a draft: add it to the new draft
-      // (2) and (3) can occur for the same note.
-
-      // in-place
+      const foundOld = findScene(oldPath, ps);
       const oldParent = oldPath.split("/").slice(0, -1).join("/");
-      if (foundOld && oldParent === file.parent.path) {
-        draftsStore.update((_drafts) => {
-          return _drafts.map((d) => {
-            if (d.vaultPath === foundOld.draft.vaultPath && d.format === "scenes") {
-              d.scenes[foundOld.index].title = newTitle;
-            }
-            return d;
-          });
-        });
-      } else {
-        //in and/or out
 
-        // moved out of a draft
-        const oldDraft = drafts.find((d) => {
-          return d.format === "scenes" && sceneFolderPath(d, this.vault) === oldParent;
-        });
-        if (oldDraft) {
-          draftsStore.update((_drafts) => {
-            return _drafts.map((d) => {
-              if (d.vaultPath === oldDraft.vaultPath && d.format === "scenes") {
-                d.scenes = d.scenes.filter((s) => s.title !== file.basename);
-                d.unknownFiles = d.unknownFiles.filter((f) => f !== file.basename);
+      if (foundOld && oldParent === file.parent.path) {
+        // in-place rename
+        projectsStore.update((all) =>
+          all.map((p) => {
+            if (p.vaultPath === foundOld.draft.vaultPath && p.format === "scenes") {
+              p.scenes[foundOld.index].title = newTitle;
+            }
+            return p;
+          }),
+        );
+      } else {
+        // moved out of a project
+        const oldProject = ps.find(
+          (p) => p.format === "scenes" && sceneFolderPath(p, this.vault) === oldParent,
+        );
+        if (oldProject) {
+          projectsStore.update((all) =>
+            all.map((p) => {
+              if (p.vaultPath === oldProject.vaultPath && p.format === "scenes") {
+                p.scenes = p.scenes.filter((s) => s.title !== file.basename);
+                p.unknownFiles = p.unknownFiles.filter((f) => f !== file.basename);
               }
-              return d;
-            });
-          });
+              return p;
+            }),
+          );
         }
 
-        // moved into a draft
-        const newDraft = drafts.find((d) => {
-          return d.format === "scenes" && sceneFolderPath(d, this.vault) === file.parent.path;
-        });
-        if (newDraft) {
-          draftsStore.update((_drafts) => {
-            return _drafts.map((d) => {
-              if (d.vaultPath === newDraft.vaultPath && d.format === "scenes") {
-                d.unknownFiles.push(file.basename);
+        // moved into a project
+        const newProject = ps.find(
+          (p) => p.format === "scenes" && sceneFolderPath(p, this.vault) === file.parent.path,
+        );
+        if (newProject) {
+          projectsStore.update((all) =>
+            all.map((p) => {
+              if (p.vaultPath === newProject.vaultPath && p.format === "scenes") {
+                p.unknownFiles.push(file.basename);
               }
-              return d;
-            });
-          });
+              return p;
+            }),
+          );
         }
       }
     }
   }
 
-  async draftsStoreChanged(newValue: Draft[]) {
-    for (const draft of newValue) {
-      const old = this.lastKnownDraftsByPath[draft.vaultPath];
-      if (!old || !isEqual(draft, old)) {
-        this.pathsToIgnoreNextChange.add(draft.vaultPath);
-        await this.writeDraftFrontmatter(draft);
+  async draftsStoreChanged(newValue: Project[]) {
+    for (const project of newValue) {
+      const old = this.lastKnownProjectsByPath[project.vaultPath];
+      if (!old || !isEqual(project, old)) {
+        this.pathsToIgnoreNextChange.add(project.vaultPath);
+        await this.writeDraftFrontmatter(project);
       }
     }
 
-    this.lastKnownDraftsByPath = cloneDeep(
-      newValue.reduce((acc: Record<string, Draft>, d) => {
-        acc[d.vaultPath] = d;
+    this.lastKnownProjectsByPath = cloneDeep(
+      newValue.reduce((acc: Record<string, Project>, p) => {
+        acc[p.vaultPath] = p;
         return acc;
       }, {}),
     );
   }
 
-  // if dirty, draft is modified from reality of index file
-  // and should be written back to index file
   private async draftFor(
     fileWithMetadata: FileWithMetadata,
-  ): Promise<{ draft: Draft; dirty: boolean } | null> {
+  ): Promise<{ draft: Project; dirty: boolean } | null> {
     if (!fileWithMetadata.metadata.frontmatter) {
       return null;
     }
@@ -426,7 +394,6 @@ export class StoreVaultSync {
       title = fileNameFromPath(vaultPath);
     }
     const workflow = longformEntry["workflow"] ?? null;
-    const draftTitle = longformEntry["draftTitle"] ?? null;
 
     if (format === "scenes") {
       let rawScenes: any = longformEntry["scenes"] ?? [];
@@ -490,7 +457,6 @@ export class StoreVaultSync {
           format: "scenes",
           title,
           titleInFrontmatter,
-          draftTitle,
           vaultPath,
           sceneFolder,
           scenes: knownScenes,
@@ -507,7 +473,6 @@ export class StoreVaultSync {
           format: "single",
           title,
           titleInFrontmatter,
-          draftTitle,
           vaultPath,
           workflow,
         },
@@ -521,7 +486,7 @@ export class StoreVaultSync {
     }
   }
 
-  private async writeDraftFrontmatter(draft: Draft) {
+  private async writeDraftFrontmatter(draft: Project) {
     const file = this.app.vault.getAbstractFileByPath(draft.vaultPath);
     if (!file || !(file instanceof TFile)) {
       return;
@@ -555,7 +520,7 @@ export class StoreVaultSync {
 
 export function syncSceneIndices(app: App): void | Promise<void[]> {
   const writes: Promise<void>[] = [];
-  get(draftsStore).forEach((draft) => {
+  get(projectsStore).forEach((draft) => {
     if (draft.format !== "scenes") return;
     numberScenes(draft.scenes).map((numberedScene, index) => {
       const sceneFilePath = scenePath(numberedScene.title, draft, app.vault);

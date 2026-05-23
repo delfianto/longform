@@ -17,7 +17,7 @@ If you want stable, community-supported Longform, use [the upstream](https://git
 - **Flat frontmatter schema** — every project key lives at the top level of `Index.md` so Obsidian's Properties UI can edit it without flattening or losing structure.
 - **eBook metadata first-class** — `author`, `language`, `identifier`, `description`, `cover`, `publisher`, `pubdate`, `rights`, `subjects`, `series`, `seriesIndex` live alongside `title` / `workflow` / `scenes`. An EPUB-producing compile step can read them directly; no sidecar file.
 - **Scene display labels** — the Scenes tab uses each scene file's `frontmatter.title` as its row label (live-updating), falling back to the filename. Lets you name files concisely (`ch01-s02.md`) while displaying a friendlier title.
-- All other upstream features still work: sidebar pane, reorderable nested scene list, word counts, writing-session goals, compile workflows, single-scene and multi-scene projects, multiple drafts grouped by title.
+- All other upstream features still work: sidebar pane, reorderable nested scene list, per-project/per-scene word counts in the Project tab, compile workflows, single-scene and multi-scene projects, multiple drafts grouped by title. Writing-session goals and the status-bar word count have been removed — Obsidian's built-in word-count statistic covers the latter.
 
 ## What this is NOT
 

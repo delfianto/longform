@@ -1,15 +1,11 @@
-import type { Project, ProjectWordCounts, WordCountSession } from "./types";
+import type { Project, ProjectWordCounts } from "./types";
 import {
   projects as projectsStore,
   projectWordCounts as projectWordCountsStore,
-  pluginSettings,
-  sessions as sessionsStore,
 } from "src/model/stores";
 import { debounce, TAbstractFile, TFile, type Debouncer, type Vault } from "obsidian";
 import { get, type Unsubscriber } from "svelte/store";
 import { draftForPath, scenePath } from "./scene-navigation";
-import { activeFileWordCountStatus } from "src/view/stores";
-import { cloneDeep } from "lodash";
 
 // A lot of the word-counting logic is from
 // https://gist.github.com/chrisgrieser/ac16a80cdd9e8e0e84606cc24e35ad99#file-word-count-dashboard-md
@@ -51,94 +47,22 @@ function countWords(text: string, removeMarkdown = true, removeComments = true):
 }
 
 /**
- * Tracks writing sessions: word counts, for now.
+ * Counts words across all known projects and keeps {@link projectWordCountsStore}
+ * in sync with vault changes.
  */
-export class WritingSessionTracker {
+export class WordCountTracker {
   private vault: Vault;
-  private sessionStartCounts: ProjectWordCounts | null = null;
-  private sessionStartDiffs: WordCountSession | null = null;
   private unsubscribeDrafts: Unsubscriber;
-  private unsubscribeActiveWordCount: Unsubscriber;
-  private unsubscribeSettings: Unsubscriber;
-  private unsubscribeSessions: Unsubscriber;
   private debouncedCountDraft: Debouncer<[TAbstractFile, string], Promise<void>>;
-  private statusBarItem: HTMLSpanElement;
-  private hideStatusBarSetting = false;
-  private cachedLatestSession: WordCountSession | null = null;
-  private startNewSessionsOnNewDays = true;
-  private keepSessionCount = 30;
-  private countDeletions = false;
-  goalsNotifiedFor = new Set();
 
-  constructor(
-    sessions: WordCountSession[],
-    statusBarContainer: HTMLElement,
-    onStatusClick: () => void,
-    vault: Vault,
-  ) {
+  constructor(vault: Vault) {
     this.vault = vault;
-
-    // deserialize dates from iso8601 strings
-    const deserializedSessions = sessions.map((s) => ({
-      ...s,
-      start: new Date(s.start),
-    }));
-
-    sessionsStore.set(deserializedSessions);
-
     this.unsubscribeDrafts = projectsStore.subscribe(this.countWordsInDrafts.bind(this));
-
     this.debouncedCountDraft = debounce(this.countDraftContaining.bind(this), 1000);
-
-    statusBarContainer.classList.add("mod-clickable");
-    statusBarContainer.addEventListener("click", onStatusClick);
-
-    this.statusBarItem = statusBarContainer.createSpan({
-      cls: ["longform-word-count-status"],
-    });
-
-    this.unsubscribeActiveWordCount = activeFileWordCountStatus.subscribe((status) => {
-      if (status) {
-        this.statusBarItem.hidden = this.hideStatusBarSetting;
-
-        let statusBarText = "";
-        if (status.scene && status.scene !== status.draft) {
-          statusBarText += `${status.scene.toLocaleString()}w scene/`;
-        }
-
-        if (status.draft && status.draft !== status.project) {
-          statusBarText += `${status.draft.toLocaleString()}w draft`;
-        } else {
-          statusBarText += `${status.project.toLocaleString()}w project`;
-        }
-
-        this.statusBarItem.setText(statusBarText);
-      } else {
-        this.statusBarItem.hidden = true;
-      }
-    });
-
-    this.unsubscribeSettings = pluginSettings.subscribe((s) => {
-      const hideSettings = !s.showWordCountInStatusBar;
-      if (hideSettings !== this.hideStatusBarSetting) {
-        this.statusBarItem.hidden = hideSettings;
-      }
-      this.hideStatusBarSetting = hideSettings;
-      this.startNewSessionsOnNewDays = s.startNewSessionEachDay;
-      this.keepSessionCount = s.keepSessionCount;
-      this.countDeletions = s.countDeletionsForGoal;
-    });
-
-    this.unsubscribeSessions = sessionsStore.subscribe((localSessions) => {
-      this.cachedLatestSession = localSessions[0] ?? null;
-    });
   }
 
   destroy(): void {
     this.unsubscribeDrafts();
-    this.unsubscribeActiveWordCount();
-    this.unsubscribeSettings();
-    this.unsubscribeSessions();
   }
 
   private async countWordsInDraft(draft: Project): Promise<Record<string, number> | number> {
@@ -171,7 +95,6 @@ export class WritingSessionTracker {
     }
 
     projectWordCountsStore.set(counts);
-    this.tickSession(counts);
   }
 
   private async countDraftContaining(file: TAbstractFile, oldPath: string | null) {
@@ -180,7 +103,6 @@ export class WritingSessionTracker {
       const draftCount = await this.countWordsInDraft(draft);
       projectWordCountsStore.update((counts) => {
         counts[draft.vaultPath] = draftCount;
-        this.tickSession(counts);
         return counts;
       });
       return;
@@ -192,7 +114,6 @@ export class WritingSessionTracker {
         const draftCount = await this.countWordsInDraft(draft);
         projectWordCountsStore.update((counts) => {
           counts[draft.vaultPath] = draftCount;
-          this.tickSession(counts);
           return counts;
         });
         return;
@@ -206,144 +127,5 @@ export class WritingSessionTracker {
 
   async debouncedCountDraftContaining(file: TAbstractFile, oldPath: string | null = null) {
     this.debouncedCountDraft(file, oldPath);
-  }
-
-  startNewSession(counts: ProjectWordCounts = undefined) {
-    const wordCounts = counts ?? get(projectWordCountsStore);
-
-    const newSession: WordCountSession = {
-      start: new Date(),
-      total: 0,
-      projects: {},
-    };
-
-    sessionsStore.update((s) => [newSession, ...s]);
-    this.goalsNotifiedFor = new Set();
-    this.cachedLatestSession = newSession;
-    this.sessionStartCounts = cloneDeep(wordCounts);
-    this.sessionStartDiffs = newSession;
-
-    return newSession;
-  }
-
-  tickSession(counts: ProjectWordCounts = undefined) {
-    // compare dates to latest session to see if we should make a new one
-    const wordCounts = counts ?? get(projectWordCountsStore);
-
-    if (!wordCounts || Object.keys(wordCounts).length === 0) {
-      return;
-    }
-
-    let shouldStartNewSession = !this.cachedLatestSession;
-
-    if (!shouldStartNewSession && this.cachedLatestSession && this.startNewSessionsOnNewDays) {
-      const today = new Date();
-      const isSameDay =
-        today.getDate() === this.cachedLatestSession.start.getDate() &&
-        today.getMonth() === this.cachedLatestSession.start.getMonth() &&
-        today.getFullYear() === this.cachedLatestSession.start.getFullYear();
-      shouldStartNewSession = !isSameDay;
-    }
-
-    if (shouldStartNewSession) {
-      this.startNewSession();
-    }
-
-    if (!this.sessionStartCounts && wordCounts && Object.keys(wordCounts).length > 0) {
-      this.sessionStartCounts = cloneDeep(wordCounts);
-    }
-
-    if (!this.sessionStartCounts) {
-      return;
-    }
-
-    if (!this.sessionStartDiffs && this.cachedLatestSession) {
-      this.sessionStartDiffs = cloneDeep(this.cachedLatestSession);
-    }
-
-    if (!this.sessionStartDiffs) {
-      return;
-    }
-
-    // diff session start counts from the current counts
-    let total = 0;
-    const session: WordCountSession = cloneDeep(this.cachedLatestSession);
-    for (const vaultPath of Object.keys(wordCounts)) {
-      const draftCount = wordCounts[vaultPath];
-      const startCount = this.sessionStartCounts[vaultPath];
-      const startDiff = this.sessionStartDiffs.projects[vaultPath];
-      if (typeof draftCount === "number") {
-        const startNum = typeof startCount === "number" ? startCount : null;
-        const diff = startNum ? Math.max(draftCount - startNum, 0) : 0;
-        if (startDiff) {
-          const draftTotal = withDeletions(
-            startDiff.total + diff,
-            session.projects[vaultPath]?.total,
-            this.countDeletions,
-          );
-          total += draftTotal;
-          session.projects[vaultPath] = {
-            total: draftTotal,
-            scenes: {},
-          };
-        } else {
-          const draftTotal = withDeletions(
-            diff,
-            session.projects[vaultPath]?.total,
-            this.countDeletions,
-          );
-          total += draftTotal;
-          session.projects[vaultPath] = {
-            total: draftTotal,
-            scenes: {},
-          };
-        }
-      } else {
-        let draftTotal = 0;
-        const newScenes: Record<string, number> = {};
-        for (const scene of Object.keys(draftCount)) {
-          const sceneCount = draftCount[scene];
-          const startSceneCount =
-            typeof startCount === "object" ? (startCount[scene] ?? null) : null;
-          const diff = startSceneCount ? Math.max(sceneCount - startSceneCount, 0) : sceneCount;
-          const startDiffScene = startDiff?.scenes[scene] ?? 0;
-          const sceneTotal = withDeletions(
-            startDiffScene + diff,
-            session.projects[vaultPath]?.scenes[scene] ?? 0,
-            this.countDeletions,
-          );
-          draftTotal += sceneTotal;
-          newScenes[scene] = sceneTotal;
-        }
-        total += draftTotal;
-
-        session.projects[vaultPath] = {
-          total: draftTotal,
-          scenes: newScenes,
-        };
-      }
-    }
-    session.total = total;
-    sessionsStore.update((s) => {
-      s[0] = session;
-      if (s.length > this.keepSessionCount) {
-        s = s.slice(0, this.keepSessionCount);
-      }
-      return s;
-    });
-  }
-}
-
-function withDeletions(
-  localTotal: number,
-  sessionTotal: number | null,
-  includeDeletions: boolean,
-): number {
-  if (includeDeletions) {
-    return localTotal;
-  } else if (sessionTotal === null || sessionTotal === undefined) {
-    return localTotal;
-  } else {
-    return Math.max(localTotal, sessionTotal);
   }
 }

@@ -1,21 +1,16 @@
 <script lang="ts">
   import { normalizePath } from "obsidian";
   import { projectFolderPath } from "src/model/scene-navigation";
-  import { pluginSettings, projects, projectsByTitle } from "src/model/stores";
+  import { projects } from "src/model/stores";
   import {
     selectedProject,
     selectedProjectPath,
   } from "src/model/stores";
-  import { getContext, onMount } from "svelte";
+  import { onMount } from "svelte";
   import Disclosure from "../components/Disclosure.svelte";
-  import Icon from "../components/Icon.svelte";
   import { FileSuggest } from "../settings/file-suggest";
   import { FolderSuggest } from "../settings/folder-suggest";
-  import {
-    selectedProjectWordCountStatus,
-    goalProgress,
-    activeFile,
-  } from "../stores";
+  import { selectedProjectWordCountStatus } from "../stores";
   import { useApp } from "../utils";
 
   const app = useApp();
@@ -224,22 +219,6 @@
     }
   });
 
-  let showProgress = $state(false);
-  $effect(() => {
-    if ($activeFile && $selectedProject) {
-      showProgress = $activeFile.path === $selectedProject.vaultPath ||
-        ($selectedProject.format === "scenes" &&
-          $selectedProject.scenes.some(
-            (s) => $activeFile.path.endsWith(`/${s.title}.md`)
-          ));
-    }
-  });
-
-  let goalPercentage = $derived(Math.ceil(Math.min($goalProgress, 1) * 100));
-  let goalDescription = $derived(
-    `${Math.round($goalProgress * $pluginSettings.sessionGoal)}/${$pluginSettings.sessionGoal}`
-  );
-
   function pluralize(
     count: number,
     noun: string,
@@ -432,12 +411,7 @@
       {/if}
     </div>
   {/if}
-  <div
-    class="longform-project-section word-counts"
-    style={`--progress-text-color:${
-      goalPercentage >= 43 ? "var(--text-on-accent)" : "var(--text-accent)"
-    }`}
-  >
+  <div class="longform-project-section word-counts">
     <button
       type="button"
       class="longform-project-details-section-header"
@@ -448,15 +422,6 @@
     </button>
     {#if showWordCount}
       <div>
-        {#if showProgress}
-          <div
-            class="progress"
-            data-label={goalDescription}
-            title={goalDescription}
-          >
-            <div class="value" style={`width:${goalPercentage}%;`}></div>
-          </div>
-        {/if}
         {#if sceneCount}
           <p title="Word count in this scene of this project.">
             <strong>Scene:</strong>
@@ -543,38 +508,6 @@
 
   .word-counts p strong {
     color: var(--text-normal);
-  }
-
-  .progress {
-    height: var(--size-4-6);
-    width: 100%;
-    background-color: var(--background-secondary-alt);
-    border-radius: var(--radius-s);
-    position: relative;
-    overflow: hidden;
-    margin-top: var(--size-4-4);
-  }
-
-  .progress:before {
-    content: attr(data-label);
-    font-size: var(--font-smallest);
-    color: var(--progress-text-color);
-    font-weight: bold;
-    position: absolute;
-    text-align: center;
-    top: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    align-self: center;
-    height: 100%;
-  }
-
-  .progress .value {
-    height: 100%;
-    background-color: var(--text-accent);
   }
 
   textarea {

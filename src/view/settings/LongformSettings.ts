@@ -1,18 +1,16 @@
-import { App, debounce, normalizePath, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 import type { Unsubscriber } from "svelte/store";
 import { get } from "svelte/store";
 
 import type LongformPlugin from "../../main";
 import { pluginSettings, userScriptSteps } from "src/model/stores";
 import { FolderSuggest } from "./folder-suggest";
-import { DEFAULT_SESSION_FILE } from "src/model/types";
 import { FileSuggest } from "./file-suggest";
 import { syncSceneIndices } from "src/model/store-vault-sync";
 
 export class LongformSettingsTab extends PluginSettingTab {
   plugin: LongformPlugin;
   private unsubscribeUserScripts: Unsubscriber;
-  private unsubscribeSettings: Unsubscriber;
   private stepsSummary: HTMLElement;
   private stepsList: HTMLUListElement;
 
@@ -131,145 +129,6 @@ export class LongformSettingsTab extends PluginSettingTab {
         "User Script Steps are automatically loaded from this folder. Changes to .js files in this folder are synced with Longform after a slight delay. If your script does not appear here or in the Compile tab, you may have an error in your script—check the dev console for it.";
     });
 
-    new Setting(containerEl).setName("Word Counts & Sessions").setHeading();
-    new Setting(containerEl)
-      .setName("Show word counts in status bar")
-      .setDesc("Click the status item to show the focused note’s project.")
-      .addToggle((cb) => {
-        cb.setValue(settings.showWordCountInStatusBar);
-        cb.onChange((value) => {
-          pluginSettings.update((s) => ({
-            ...s,
-            showWordCountInStatusBar: value,
-          }));
-        });
-      });
-    new Setting(containerEl)
-      .setName("Start new writing sessions each day")
-      .setDesc(
-        "You can always manually start a new session by running the Longform: Start New Writing Session command. Turning this off will cause writing sessions to carry over across multiple days until you manually start a new one.",
-      )
-      .addToggle((cb) => {
-        cb.setValue(settings.startNewSessionEachDay);
-        cb.onChange((value) => {
-          pluginSettings.update((s) => ({
-            ...s,
-            startNewSessionEachDay: value,
-          }));
-        });
-      });
-    new Setting(containerEl)
-      .setName("Session word count goal")
-      .setDesc("A number of words to target for a given writing session.")
-      .addText((cb) => {
-        cb.setValue(settings.sessionGoal.toString());
-        cb.onChange((value) => {
-          const numberValue = +value;
-          if (numberValue && numberValue > 0) {
-            pluginSettings.update((s) => ({ ...s, sessionGoal: numberValue }));
-          }
-        });
-      });
-    new Setting(containerEl)
-      .setName("Goal applies to")
-      .setDesc(
-        "You can set your word count goal to target all Longform writing, or you can make each project or scene have its own discrete goal.",
-      )
-      .addDropdown((cb) => {
-        cb.addOption("all", "words written across all projects");
-        cb.addOption("project", "each project individually");
-        cb.addOption("note", "each scene or single-scene project");
-        cb.setValue(settings.applyGoalTo);
-        cb.onChange((value) => {
-          pluginSettings.update((s) => ({
-            ...s,
-            applyGoalTo: value as "all" | "project" | "note",
-          }));
-        });
-      });
-    new Setting(containerEl).setName("Notify on goal reached").addToggle((cb) => {
-      cb.setValue(settings.notifyOnGoal);
-      cb.onChange((value) => {
-        pluginSettings.update((s) => ({ ...s, notifyOnGoal: value }));
-      });
-    });
-    new Setting(containerEl)
-      .setName("Count deletions against goal")
-      .setDesc(
-        "If on, deleting words will count as negative words written. You cannot go below zero for a session.",
-      )
-      .addToggle((cb) => {
-        cb.setValue(settings.countDeletionsForGoal);
-        cb.onChange((value) => {
-          pluginSettings.update((s) => ({
-            ...s,
-            countDeletionsForGoal: value,
-          }));
-        });
-      });
-    new Setting(containerEl)
-      .setName("Sessions to keep")
-      .setDesc("Number of sessions to store locally.")
-      .addText((cb) => {
-        cb.setValue(settings.keepSessionCount.toString());
-        cb.onChange((value) => {
-          const numberValue = +value;
-          if (numberValue && numberValue > 0) {
-            pluginSettings.update((s) => ({
-              ...s,
-              keepSessionCount: numberValue,
-            }));
-          }
-        });
-      });
-    new Setting(containerEl)
-      .setName("Store session data")
-      .setDesc(
-        "Where your writing session data is stored. By default, data is stored alongside other Longform settings in the plugin’s data.json file. You may instead store it in a separate .json file in the plugin folder, or in a file in your vault. You may want to do this for selective sync or git reasons.",
-      )
-      .addDropdown((cb) => {
-        cb.addOption("data", "with Longform settings");
-        cb.addOption("plugin-folder", "as a .json file in the longform/ plugin folder");
-        cb.addOption("file", "as a file in your vault");
-        cb.setValue(settings.sessionStorage);
-        cb.onChange((value) => {
-          pluginSettings.update((s) => ({
-            ...s,
-            sessionStorage: value as "data" | "plugin-folder" | "file",
-          }));
-        });
-      });
-
-    const updateSessionFile = debounce((value: string) => {
-      // Normalize file to end in .json
-      let fileName = value;
-      if (!fileName || fileName.length === 0) {
-        fileName = DEFAULT_SESSION_FILE;
-      }
-      fileName = normalizePath(fileName);
-      if (!fileName.endsWith(".json")) {
-        fileName = `${fileName}.json`;
-      }
-      pluginSettings.update((s) => ({ ...s, sessionFile: fileName }));
-    }, 1000);
-
-    const sessionFileStorageSettings = new Setting(containerEl)
-      .setName("Session storage file")
-      .setDesc(
-        "Location in your vault to store session JSON. Created if does not exist, overwritten if it does.",
-      )
-      .addText((cb) => {
-        cb.setPlaceholder(DEFAULT_SESSION_FILE);
-        cb.setValue(settings.sessionFile ?? DEFAULT_SESSION_FILE);
-        cb.onChange(updateSessionFile);
-      });
-    sessionFileStorageSettings.settingEl.style.display = "none";
-
-    this.unsubscribeSettings = pluginSettings.subscribe((settings) => {
-      sessionFileStorageSettings.settingEl.style.display =
-        settings.sessionStorage === "file" ? "flex" : "none";
-    });
-
     new Setting(containerEl).setName("Troubleshooting").setHeading();
 
     new Setting(containerEl)
@@ -336,6 +195,5 @@ export class LongformSettingsTab extends PluginSettingTab {
 
   hide(): void {
     this.unsubscribeUserScripts();
-    this.unsubscribeSettings();
   }
 }

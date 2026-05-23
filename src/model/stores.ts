@@ -3,7 +3,6 @@ import { sortBy } from "lodash";
 
 import type { ProjectWordCounts, Project, LongformPluginSettings } from "./types";
 import type { Workflow, CompileStep } from "src/compile/steps/abstract-compile-step";
-import type { WordCountSession } from "./types";
 
 // WRITEABLE STORES
 
@@ -18,7 +17,6 @@ export const selectedProjectPath = writable<string | null>(null);
 
 export const workflows = writable<Record<string, Workflow>>({});
 export const userScriptSteps = writable<CompileStep[] | null>(null);
-export const sessions = writable<WordCountSession[]>([]);
 export const projectWordCounts = writable<ProjectWordCounts>({});
 export const waitingForSync = writable<boolean>(false);
 

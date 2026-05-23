@@ -14,7 +14,6 @@ import {
 import { indentScene, unindentScene } from "./indentation";
 import type LongformPlugin from "src/main";
 import { insertMultiSceneTemplate, insertSingleSceneTemplate } from "./templates";
-import { startNewSession } from "./word-counts";
 
 const commandBuilders = [
   compileCurrent,
@@ -33,7 +32,6 @@ const commandBuilders = [
   focusNewSceneField,
   insertMultiSceneTemplate,
   insertSingleSceneTemplate,
-  startNewSession,
 ];
 
 export function addCommands(plugin: LongformPlugin) {

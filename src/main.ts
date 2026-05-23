@@ -5,7 +5,6 @@ import {
   WorkspaceLeaf,
   FileView,
   addIcon,
-  Notice,
   TAbstractFile,
   TFile,
   TFolder,
@@ -14,7 +13,7 @@ import {
 import debounce from "lodash/debounce";
 import once from "lodash/once";
 import pick from "lodash/pick";
-import { derived, type Unsubscriber } from "svelte/store";
+import type { Unsubscriber } from "svelte/store";
 import { get } from "svelte/store";
 
 import { VIEW_TYPE_LONGFORM_EXPLORER, ExplorerPane } from "./view/explorer/ExplorerPane";
@@ -23,10 +22,9 @@ import {
   type Project,
   type LongformPluginSettings,
   type SerializedWorkflow,
-  type WordCountSession,
 } from "./model/types";
 import { DEFAULT_SETTINGS, TRACKED_SETTINGS_PATHS } from "./model/types";
-import { activeFile, goalProgress, selectedTab } from "./view/stores";
+import { activeFile, selectedTab } from "./view/stores";
 import { ICON_NAME, ICON_SVG } from "./view/icon";
 import { LongformSettingsTab } from "./view/settings/LongformSettings";
 import { deserializeWorkflow, serializeWorkflow } from "./compile/serialization";
@@ -41,11 +39,10 @@ import {
   initialized,
   pluginSettings,
   projects,
-  sessions,
 } from "./model/stores";
 import { addCommands } from "./commands";
 import { draftForPath } from "./model/scene-navigation";
-import { WritingSessionTracker } from "./model/writing-session-tracker";
+import { WordCountTracker } from "./model/word-count-tracker";
 import NewProjectModal from "./view/project-lifecycle/new-project-modal";
 import { LongformAPI } from "./api/LongformAPI";
 
@@ -62,10 +59,8 @@ export default class LongformPlugin extends Plugin {
   private unsubscribeWorkflows: Unsubscriber;
   private unsubscribeProjects: Unsubscriber;
   private unsubscribeSelectedProject: Unsubscriber;
-  private unsubscribeSessions: Unsubscriber;
-  private unsubscribeGoalNotification: Unsubscriber;
   private userScriptObserver: UserScriptObserver;
-  writingSessionTracker: WritingSessionTracker;
+  wordCountTracker: WordCountTracker;
   public api: LongformAPI;
 
   private storeVaultSync: StoreVaultSync;
@@ -162,9 +157,7 @@ export default class LongformPlugin extends Plugin {
     this.unsubscribeWorkflows();
     this.unsubscribeSelectedProject();
     this.unsubscribeProjects();
-    this.unsubscribeSessions();
-    this.unsubscribeGoalNotification();
-    this.writingSessionTracker.destroy();
+    this.wordCountTracker.destroy();
     this.app.workspace
       .getLeavesOfType(VIEW_TYPE_LONGFORM_EXPLORER)
       .forEach((leaf) => leaf.detach());
@@ -210,30 +203,7 @@ export default class LongformPlugin extends Plugin {
     // Persist to vault (creates the file if migrating or first run).
     await this.saveWorkflowsToVault();
 
-    const onStatusClick = () => {
-      const file = get(activeFile);
-      if (!file) {
-        return false;
-      }
-      const draft = draftForPath(file.path, get(projects));
-      if (draft) {
-        selectedProjectPath.set(draft.vaultPath);
-        this.initLeaf();
-        const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_LONGFORM_EXPLORER).first();
-        if (leaf) {
-          this.app.workspace.revealLeaf(leaf);
-        }
-
-        selectedTab.set("Project");
-      }
-    };
-
-    this.writingSessionTracker = new WritingSessionTracker(
-      settings["sessions"],
-      this.addStatusBarItem(),
-      onStatusClick,
-      this.app.vault,
-    );
+    this.wordCountTracker = new WordCountTracker(this.app.vault);
   }
 
   private get workflowsDir(): string {
@@ -324,83 +294,6 @@ export default class LongformPlugin extends Plugin {
       saveWorkflows();
     });
 
-    // Sessions
-    const saveSessions = debounce(async (toSave: WordCountSession[]) => {
-      if (this.cachedSettings.sessionStorage === "data") {
-        pluginSettings.update((s) => {
-          const toReturn = {
-            ...s,
-            sessions: toSave,
-          };
-          this.cachedSettings = toReturn;
-          return toReturn;
-        });
-        await this.saveSettings();
-      } else {
-        // Save to either plugin or vault
-        let file: string | null = null;
-        if (this.cachedSettings.sessionStorage === "plugin-folder") {
-          if (!this.manifest.dir) {
-            console.error(`[Longform] No manifest.dir for saving sessions.`);
-            return;
-          }
-          file = normalizePath(`${this.manifest.dir}/sessions.json`);
-        } else {
-          file = this.cachedSettings.sessionFile;
-        }
-        if (!file) {
-          return;
-        }
-        const data = JSON.stringify(toSave);
-        await this.app.vault.adapter.write(file, data);
-
-        // If we have lingering session data in settings, clear it
-        if (this.cachedSettings.sessions.length !== 0) {
-          const emptySessions: WordCountSession[] = [];
-          pluginSettings.update((s) => {
-            const toReturn = {
-              ...s,
-              sessions: emptySessions,
-            };
-            this.cachedSettings = toReturn;
-            return toReturn;
-          });
-          await this.saveSettings();
-        }
-      }
-    }, 3000);
-    this.unsubscribeSessions = sessions.subscribe((s) => {
-      if (!get(initialized)) {
-        return;
-      }
-
-      saveSessions(s);
-    });
-
-    this.unsubscribeGoalNotification = derived(
-      [goalProgress, pluginSettings, selectedProject, activeFile],
-      (stores) => stores,
-    ).subscribe(([$goalProgress, $pluginSettings, $selectedProject, $activeFile]) => {
-      if ($goalProgress >= 1 && $pluginSettings.notifyOnGoal) {
-        let target: string;
-        if ($pluginSettings.applyGoalTo === "all") {
-          target = "all";
-        } else if ($pluginSettings.applyGoalTo === "project") {
-          target = `project::${$selectedProject.vaultPath}`;
-        } else if ($pluginSettings.applyGoalTo === "note") {
-          if ($selectedProject && $selectedProject.format === "single") {
-            target = `note::${$selectedProject.vaultPath}`;
-          } else if ($selectedProject && $selectedProject.format === "scenes" && $activeFile) {
-            target = `note::${$activeFile.path}`;
-          }
-        }
-        if (target && !this.writingSessionTracker.goalsNotifiedFor.has(target)) {
-          this.writingSessionTracker.goalsNotifiedFor.add(target);
-          new Notice("Writing goal met!");
-        }
-      }
-    });
-
     this.initLeaf();
     initialized.set(true);
   }
@@ -467,33 +360,24 @@ export default class LongformPlugin extends Plugin {
 
     // WORD COUNTS
     this.registerEvent(
-      this.app.vault.on(
-        "modify",
-        this.writingSessionTracker.fileModified.bind(this.writingSessionTracker),
-      ),
+      this.app.vault.on("modify", this.wordCountTracker.fileModified.bind(this.wordCountTracker)),
     );
 
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        this.writingSessionTracker.debouncedCountDraftContaining.bind(this.writingSessionTracker)(
-          file,
-        );
+        this.wordCountTracker.debouncedCountDraftContaining.bind(this.wordCountTracker)(file);
       }),
     );
 
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        this.writingSessionTracker.debouncedCountDraftContaining.bind(this.writingSessionTracker)(
-          file,
-        );
+        this.wordCountTracker.debouncedCountDraftContaining.bind(this.wordCountTracker)(file);
       }),
     );
 
     this.registerEvent(
       this.app.vault.on("rename", (file, _oldPath) => {
-        this.writingSessionTracker.debouncedCountDraftContaining.bind(this.writingSessionTracker)(
-          file,
-        );
+        this.wordCountTracker.debouncedCountDraftContaining.bind(this.wordCountTracker)(file);
       }),
     );
   }

@@ -5,7 +5,7 @@ import {
 } from "src/model/stores";
 import { debounce, TAbstractFile, TFile, type Debouncer, type Vault } from "obsidian";
 import { get, type Unsubscriber } from "svelte/store";
-import { draftForPath, scenePath } from "./scene-navigation";
+import { projectForPath, scenePath } from "./scene-navigation";
 
 // A lot of the word-counting logic is from
 // https://gist.github.com/chrisgrieser/ac16a80cdd9e8e0e84606cc24e35ad99#file-word-count-dashboard-md
@@ -52,20 +52,20 @@ function countWords(text: string, removeMarkdown = true, removeComments = true):
  */
 export class WordCountTracker {
   private vault: Vault;
-  private unsubscribeDrafts: Unsubscriber;
-  private debouncedCountDraft: Debouncer<[TAbstractFile, string], Promise<void>>;
+  private unsubscribers: Unsubscriber[] = [];
+  private debouncedCountProject: Debouncer<[TAbstractFile, string], Promise<void>>;
 
   constructor(vault: Vault) {
     this.vault = vault;
-    this.unsubscribeDrafts = projectsStore.subscribe(this.countWordsInDrafts.bind(this));
-    this.debouncedCountDraft = debounce(this.countDraftContaining.bind(this), 1000);
+    this.unsubscribers.push(projectsStore.subscribe(this.countWordsInProjects.bind(this)));
+    this.debouncedCountProject = debounce(this.countProjectContaining.bind(this), 1000);
   }
 
   destroy(): void {
-    this.unsubscribeDrafts();
+    this.unsubscribers.forEach((u) => u());
   }
 
-  private async countWordsInDraft(draft: Project): Promise<Record<string, number> | number> {
+  private async countWordsInProject(draft: Project): Promise<Record<string, number> | number> {
     const countForPath = async (path: string) => {
       const file = this.vault.getAbstractFileByPath(path);
       if (file instanceof TFile) {
@@ -87,20 +87,20 @@ export class WordCountTracker {
     }
   }
 
-  async countWordsInDrafts(drafts: Project[]) {
+  async countWordsInProjects(drafts: Project[]) {
     const counts: ProjectWordCounts = {};
 
     for (const draft of drafts) {
-      counts[draft.vaultPath] = await this.countWordsInDraft(draft);
+      counts[draft.vaultPath] = await this.countWordsInProject(draft);
     }
 
     projectWordCountsStore.set(counts);
   }
 
-  private async countDraftContaining(file: TAbstractFile, oldPath: string | null) {
-    const draft = draftForPath(file.path, get(projectsStore));
+  private async countProjectContaining(file: TAbstractFile, oldPath: string | null) {
+    const draft = projectForPath(file.path, get(projectsStore));
     if (draft) {
-      const draftCount = await this.countWordsInDraft(draft);
+      const draftCount = await this.countWordsInProject(draft);
       projectWordCountsStore.update((counts) => {
         counts[draft.vaultPath] = draftCount;
         return counts;
@@ -109,9 +109,9 @@ export class WordCountTracker {
     }
 
     if (oldPath) {
-      const draft = draftForPath(oldPath, get(projectsStore));
+      const draft = projectForPath(oldPath, get(projectsStore));
       if (draft) {
-        const draftCount = await this.countWordsInDraft(draft);
+        const draftCount = await this.countWordsInProject(draft);
         projectWordCountsStore.update((counts) => {
           counts[draft.vaultPath] = draftCount;
           return counts;
@@ -122,10 +122,10 @@ export class WordCountTracker {
   }
 
   async fileModified(file: TAbstractFile) {
-    this.countDraftContaining(file, null);
+    this.countProjectContaining(file, null);
   }
 
-  async debouncedCountDraftContaining(file: TAbstractFile, oldPath: string | null = null) {
-    this.debouncedCountDraft(file, oldPath);
+  async debouncedCountProjectContaining(file: TAbstractFile, oldPath: string | null = null) {
+    this.debouncedCountProject(file, oldPath);
   }
 }

@@ -1,5 +1,5 @@
 import { App, Modal, TFolder } from "obsidian";
-import { insertProjectFrontmatter } from "src/model/draft-utils";
+import { insertProjectFrontmatter } from "src/model/project-utils";
 import { selectedProjectPath } from "src/model/stores";
 import type { Project, MultipleSceneProject, SingleSceneProject } from "src/model/types";
 import { selectedTab } from "src/view/stores";

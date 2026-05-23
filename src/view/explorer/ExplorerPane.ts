@@ -18,7 +18,7 @@ import { mount, unmount } from "svelte";
 import { scenePath } from "src/model/scene-navigation";
 import { get } from "svelte/store";
 import { projects, selectedProject } from "src/model/stores";
-import { insertScene } from "src/model/draft-utils";
+import { insertScene } from "src/model/project-utils";
 import { UndoManager } from "../undo-manager";
 import { ignoreScene } from "./scene-menu-items";
 import { appContext } from "../utils";

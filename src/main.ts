@@ -41,7 +41,7 @@ import {
   projects,
 } from "./model/stores";
 import { addCommands } from "./commands";
-import { draftForPath } from "./model/scene-navigation";
+import { projectForPath } from "./model/scene-navigation";
 import { WordCountTracker } from "./model/word-count-tracker";
 import NewProjectModal from "./view/modals/NewProjectModal";
 import { LongformAPI } from "./api";
@@ -55,10 +55,7 @@ export default class LongformPlugin extends Plugin {
   // since this class does a lot of ad-hoc settings fetching.
   // More efficient than a lot of get() calls.
   cachedSettings: LongformPluginSettings | null = null;
-  private unsubscribeSettings: Unsubscriber;
-  private unsubscribeWorkflows: Unsubscriber;
-  private unsubscribeProjects: Unsubscriber;
-  private unsubscribeSelectedProject: Unsubscriber;
+  private unsubscribers: Unsubscriber[] = [];
   private userScriptObserver: UserScriptObserver;
   wordCountTracker: WordCountTracker;
   public api: LongformAPI;
@@ -88,30 +85,32 @@ export default class LongformPlugin extends Plugin {
     );
 
     // Settings
-    this.unsubscribeSettings = pluginSettings.subscribe(async (value) => {
-      let shouldSave = false;
+    this.unsubscribers.push(
+      pluginSettings.subscribe(async (value) => {
+        let shouldSave = false;
 
-      const changeInKeys = (
-        obj1: Record<string, any>,
-        obj2: Record<string, any>,
-        keys: string[],
-      ): boolean => {
-        return !!keys.find((k) => obj1[k] !== obj2[k]);
-      };
+        const changeInKeys = (
+          obj1: Record<string, any>,
+          obj2: Record<string, any>,
+          keys: string[],
+        ): boolean => {
+          return !!keys.find((k) => obj1[k] !== obj2[k]);
+        };
 
-      if (
-        this.cachedSettings &&
-        changeInKeys(this.cachedSettings, value, PASSTHROUGH_SAVE_SETTINGS_PATHS)
-      ) {
-        shouldSave = true;
-      }
+        if (
+          this.cachedSettings &&
+          changeInKeys(this.cachedSettings, value, PASSTHROUGH_SAVE_SETTINGS_PATHS)
+        ) {
+          shouldSave = true;
+        }
 
-      this.cachedSettings = value;
+        this.cachedSettings = value;
 
-      if (shouldSave) {
-        await this.saveSettings();
-      }
-    });
+        if (shouldSave) {
+          await this.saveSettings();
+        }
+      }),
+    );
 
     await this.loadSettings();
     this.addSettingTab(new LongformSettingsTab(this.app, this));
@@ -143,9 +142,11 @@ export default class LongformPlugin extends Plugin {
         this.styleLongformLeaves();
       }),
     );
-    this.unsubscribeProjects = projects.subscribe((allProjects) => {
-      this.styleLongformLeaves(allProjects);
-    });
+    this.unsubscribers.push(
+      projects.subscribe((allProjects) => {
+        this.styleLongformLeaves(allProjects);
+      }),
+    );
 
     this.api = new LongformAPI();
   }
@@ -153,10 +154,7 @@ export default class LongformPlugin extends Plugin {
   onunload(): void {
     this.userScriptObserver.destroy();
     this.storeVaultSync.destroy();
-    this.unsubscribeSettings();
-    this.unsubscribeWorkflows();
-    this.unsubscribeSelectedProject();
-    this.unsubscribeProjects();
+    this.unsubscribers.forEach((u) => u());
     this.wordCountTracker.destroy();
     this.app.workspace
       .getLeavesOfType(VIEW_TYPE_LONGFORM_EXPLORER)
@@ -266,33 +264,37 @@ export default class LongformPlugin extends Plugin {
       }
     });
 
-    this.unsubscribeSelectedProject = selectedProject.subscribe(async (d) => {
-      if (!get(initialized) || !d) {
-        return;
-      }
+    this.unsubscribers.push(
+      selectedProject.subscribe(async (d) => {
+        if (!get(initialized) || !d) {
+          return;
+        }
 
-      // On initial load, default to Scenes tab for multi-scene projects.
-      defaultToScenes(d);
+        // On initial load, default to Scenes tab for multi-scene projects.
+        defaultToScenes(d);
 
-      pluginSettings.update((s) => ({
-        ...s,
-        selectedProjectPath: d.vaultPath,
-      }));
-      this.cachedSettings = get(pluginSettings);
-      await this.saveSettings();
-    });
+        pluginSettings.update((s) => ({
+          ...s,
+          selectedProjectPath: d.vaultPath,
+        }));
+        this.cachedSettings = get(pluginSettings);
+        await this.saveSettings();
+      }),
+    );
 
     // Workflows
     const saveWorkflows = debounce(() => {
       this.saveWorkflowsToVault();
     }, 3000);
-    this.unsubscribeWorkflows = workflows.subscribe(() => {
-      if (!get(initialized)) {
-        return;
-      }
+    this.unsubscribers.push(
+      workflows.subscribe(() => {
+        if (!get(initialized)) {
+          return;
+        }
 
-      saveWorkflows();
-    });
+        saveWorkflows();
+      }),
+    );
 
     this.initLeaf();
     initialized.set(true);
@@ -365,19 +367,19 @@ export default class LongformPlugin extends Plugin {
 
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        this.wordCountTracker.debouncedCountDraftContaining.bind(this.wordCountTracker)(file);
+        this.wordCountTracker.debouncedCountProjectContaining.bind(this.wordCountTracker)(file);
       }),
     );
 
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        this.wordCountTracker.debouncedCountDraftContaining.bind(this.wordCountTracker)(file);
+        this.wordCountTracker.debouncedCountProjectContaining.bind(this.wordCountTracker)(file);
       }),
     );
 
     this.registerEvent(
       this.app.vault.on("rename", (file, _oldPath) => {
-        this.wordCountTracker.debouncedCountDraftContaining.bind(this.wordCountTracker)(file);
+        this.wordCountTracker.debouncedCountProjectContaining.bind(this.wordCountTracker)(file);
       }),
     );
   }
@@ -385,7 +387,7 @@ export default class LongformPlugin extends Plugin {
   private styleLongformLeaves(allProjects: Project[] = get(projects)) {
     this.app.workspace.getLeavesOfType("markdown").forEach((leaf) => {
       if (leaf.view instanceof FileView) {
-        const draft = draftForPath(leaf.view.file.path, allProjects);
+        const draft = projectForPath(leaf.view.file.path, allProjects);
         if (draft) {
           leaf.view.containerEl.classList.add(LONGFORM_LEAF_CLASS);
         } else {

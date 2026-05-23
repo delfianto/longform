@@ -10,7 +10,7 @@ import { syncSceneIndices } from "src/model/store-vault-sync";
 
 export class LongformSettingsTab extends PluginSettingTab {
   plugin: LongformPlugin;
-  private unsubscribeUserScripts: Unsubscriber;
+  private unsubscribers: Unsubscriber[] = [];
   private stepsSummary: HTMLElement;
   private stepsList: HTMLUListElement;
 
@@ -99,31 +99,33 @@ export class LongformSettingsTab extends PluginSettingTab {
     this.stepsList = containerEl.createEl("ul", {
       cls: "longform-settings-user-steps",
     });
-    this.unsubscribeUserScripts = userScriptSteps.subscribe((steps) => {
-      if (steps && steps.length > 0) {
-        this.stepsSummary.innerText = `Loaded ${steps.length} step${
-          steps.length !== 1 ? "s" : ""
-        }:`;
-      } else {
-        this.stepsSummary.innerText = "No steps loaded.";
-      }
-      if (this.stepsList) {
-        this.stepsList.empty();
-        if (steps) {
-          steps.forEach((s) => {
-            const stepEl = this.stepsList.createEl("li");
-            stepEl.createSpan({
-              text: s.description.name,
-              cls: "longform-settings-user-step-name",
-            });
-            stepEl.createSpan({
-              text: `(${s.description.canonicalID})`,
-              cls: "longform-settings-user-step-id",
-            });
-          });
+    this.unsubscribers.push(
+      userScriptSteps.subscribe((steps) => {
+        if (steps && steps.length > 0) {
+          this.stepsSummary.innerText = `Loaded ${steps.length} step${
+            steps.length !== 1 ? "s" : ""
+          }:`;
+        } else {
+          this.stepsSummary.innerText = "No steps loaded.";
         }
-      }
-    });
+        if (this.stepsList) {
+          this.stepsList.empty();
+          if (steps) {
+            steps.forEach((s) => {
+              const stepEl = this.stepsList.createEl("li");
+              stepEl.createSpan({
+                text: s.description.name,
+                cls: "longform-settings-user-step-name",
+              });
+              stepEl.createSpan({
+                text: `(${s.description.canonicalID})`,
+                cls: "longform-settings-user-step-id",
+              });
+            });
+          }
+        }
+      }),
+    );
     containerEl.createEl("p", { cls: "setting-item-description" }, (el) => {
       el.innerHTML =
         "User Script Steps are automatically loaded from this folder. Changes to .js files in this folder are synced with Longform after a slight delay. If your script does not appear here or in the Compile tab, you may have an error in your script—check the dev console for it.";
@@ -194,6 +196,6 @@ export class LongformSettingsTab extends PluginSettingTab {
   }
 
   hide(): void {
-    this.unsubscribeUserScripts();
+    this.unsubscribers.forEach((u) => u());
   }
 }

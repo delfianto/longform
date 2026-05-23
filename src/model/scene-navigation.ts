@@ -40,7 +40,7 @@ export function findScene(
   return null;
 }
 
-export function draftForPath(path: string, drafts: Project[]): Project | null {
+export function projectForPath(path: string, drafts: Project[]): Project | null {
   for (const draft of drafts) {
     if (draft.vaultPath === path) {
       return draft;

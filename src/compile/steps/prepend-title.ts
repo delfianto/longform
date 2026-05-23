@@ -1,5 +1,5 @@
 import { repeat } from "lodash";
-import { formatSceneNumber } from "src/model/draft-utils";
+import { formatSceneNumber } from "src/model/project-utils";
 import type { CompileInput, CompileSceneInput } from "..";
 import type { CompileContext } from "./abstract-compile-step";
 import { CompileStepKind, makeBuiltinStep, CompileStepOptionType } from "./abstract-compile-step";

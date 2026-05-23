@@ -1,10 +1,10 @@
 import type { Editor, MarkdownFileInfo, MarkdownView } from "obsidian";
 
-import { draftForPath } from "src/model/scene-navigation";
+import { projectForPath } from "src/model/scene-navigation";
 import { projects, selectedProjectPath } from "src/model/stores";
 import { get } from "svelte/store";
 import type { CommandBuilder } from "./types";
-import { insertProjectFrontmatter } from "src/model/draft-utils";
+import { insertProjectFrontmatter } from "src/model/project-utils";
 import { fileNameFromPath } from "src/model/note-utils";
 import type { Project, MultipleSceneProject, SingleSceneProject } from "src/model/types";
 
@@ -16,7 +16,7 @@ const callbackForFormat = (
 ): boolean | void => {
   const file = view.file;
 
-  const project = draftForPath(file.path, get(projects));
+  const project = projectForPath(file.path, get(projects));
   if (checking && project) {
     return false;
   } else if (project) {

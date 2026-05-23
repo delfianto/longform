@@ -151,9 +151,6 @@ function writeEbookMetadata(obj: Record<string, any>, ebook: EbookMetadata | und
   }
 }
 
-// Legacy alias used by store-vault-sync
-export const setDraftOnFrontmatterObject = setProjectFrontmatter;
-
 const SCENE_INDENT_TOKEN = "> ";
 
 /**
@@ -195,55 +192,6 @@ export function decodeFlatScenes(items: unknown): IndentedScene[] {
       return { title, indent };
     })
     .filter((s): s is IndentedScene => s !== null);
-}
-
-export function indentedScenesToArrays(indented: IndentedScene[]) {
-  const result: any = [];
-  let currentIndent = 0;
-  let currentNesting = result;
-  const nestingAt: Record<number, any> = {};
-  nestingAt[0] = currentNesting;
-
-  indented.forEach(({ title, indent }) => {
-    if (indent > currentIndent) {
-      while (currentIndent < indent) {
-        currentIndent = currentIndent + 1;
-        const newNesting: any = [];
-        currentNesting.push(newNesting);
-        nestingAt[currentIndent] = newNesting;
-        currentNesting = newNesting;
-      }
-    } else if (indent < currentIndent) {
-      currentNesting = nestingAt[indent];
-      currentIndent = indent;
-    }
-
-    currentNesting.push(title);
-  });
-  return result;
-}
-
-export function arraysToIndentedScenes(
-  arr: any,
-  result: IndentedScene[] = [],
-  currentIndent = -1,
-): IndentedScene[] {
-  if (arr instanceof Array) {
-    if (arr.length === 0) {
-      return result;
-    }
-
-    const next = arr.shift();
-    const inner = arraysToIndentedScenes(next, [], currentIndent + 1);
-    return arraysToIndentedScenes(arr, [...result, ...inner], currentIndent);
-  } else {
-    return [
-      {
-        title: arr,
-        indent: currentIndent,
-      },
-    ];
-  }
 }
 
 export type NumberedScene = IndentedScene & {
@@ -299,6 +247,3 @@ export async function insertProjectFrontmatter(app: App, path: string, project: 
     console.error("[Longform] insertProjectFrontmatter: processFrontMatter error:", error);
   }
 }
-
-// Legacy alias
-export const insertDraftIntoFrontmatter = insertProjectFrontmatter;

@@ -3,7 +3,7 @@ import {
   encodeIndentedScenes,
   decodeFlatScenes,
   setProjectFrontmatter,
-} from "src/model/draft-utils";
+} from "src/model/project-utils";
 import type { IndentedScene, MultipleSceneProject, SingleSceneProject } from "src/model/types";
 
 const flat = (titles: string[]): IndentedScene[] => titles.map((title) => ({ title, indent: 0 }));

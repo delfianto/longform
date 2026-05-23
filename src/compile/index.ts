@@ -1,5 +1,5 @@
 import { type App, normalizePath } from "obsidian";
-import { numberScenes } from "src/model/draft-utils";
+import { numberScenes } from "src/model/project-utils";
 import { projectFolderPath, sceneFolderPath, scenePathForFolder } from "src/model/scene-navigation";
 import type { Project, SerializedWorkflow } from "src/model/types";
 import {

@@ -20,8 +20,8 @@ import {
   decodeFlatScenes,
   formatSceneNumber,
   numberScenes,
-  setDraftOnFrontmatterObject,
-} from "src/model/draft-utils";
+  setProjectFrontmatter,
+} from "src/model/project-utils";
 import { fileNameFromPath } from "./note-utils";
 import { findScene, sceneFolderPath, scenePath } from "./scene-navigation";
 
@@ -59,7 +59,7 @@ export class StoreVaultSync {
   private settlingTime = 30000; // fallback settling time
 
   private lastKnownProjectsByPath: Record<string, Project> = {};
-  private unsubscribeProjectsStore: Unsubscriber;
+  private unsubscribers: Unsubscriber[] = [];
 
   private pathsToIgnoreNextChange: Set<string> = new Set();
 
@@ -70,7 +70,7 @@ export class StoreVaultSync {
   }
 
   destroy(): void {
-    this.unsubscribeProjectsStore();
+    this.unsubscribers.forEach((u) => u());
   }
 
   private isSyncEnabled(): boolean {
@@ -163,13 +163,13 @@ export class StoreVaultSync {
     const resolvedFiles = files.map((f) => resolveIfLongformFile(this.metadataCache, f));
     const projectFiles = resolvedFiles.filter((f) => f !== null);
 
-    const possibleProjects = await Promise.all(projectFiles.map((f) => this.draftFor(f)));
+    const possibleProjects = await Promise.all(projectFiles.map((f) => this.projectFor(f)));
     const loadedProjects = possibleProjects.filter((d) => d !== null);
 
     // Write dirty projects back to their index files
     const dirtyProjects = loadedProjects.filter((d) => d.dirty);
     for (const d of dirtyProjects) {
-      await this.writeDraftFrontmatter(d.draft);
+      await this.writeProjectFrontmatter(d.draft);
     }
 
     const projectsToWrite = loadedProjects.map((d) => d.draft);
@@ -188,7 +188,7 @@ export class StoreVaultSync {
       }s.`,
     );
 
-    this.unsubscribeProjectsStore = projectsStore.subscribe(this.draftsStoreChanged.bind(this));
+    this.unsubscribers.push(projectsStore.subscribe(this.projectsStoreChanged.bind(this)));
   }
 
   async fileMetadataChanged(file: TFile, _data: string, cache: CachedMetadata) {
@@ -197,7 +197,7 @@ export class StoreVaultSync {
       return;
     }
 
-    const result = await this.draftFor({ file, metadata: cache });
+    const result = await this.projectFor({ file, metadata: cache });
     if (!result) {
       const deleted = this.lastKnownProjectsByPath[file.path];
       if (deleted) {
@@ -357,12 +357,12 @@ export class StoreVaultSync {
     }
   }
 
-  async draftsStoreChanged(newValue: Project[]) {
+  async projectsStoreChanged(newValue: Project[]) {
     for (const project of newValue) {
       const old = this.lastKnownProjectsByPath[project.vaultPath];
       if (!old || !isEqual(project, old)) {
         this.pathsToIgnoreNextChange.add(project.vaultPath);
-        await this.writeDraftFrontmatter(project);
+        await this.writeProjectFrontmatter(project);
       }
     }
 
@@ -374,7 +374,7 @@ export class StoreVaultSync {
     );
   }
 
-  private async draftFor(
+  private async projectFor(
     fileWithMetadata: FileWithMetadata,
   ): Promise<{ draft: Project; dirty: boolean } | null> {
     const fm = fileWithMetadata.metadata.frontmatter;
@@ -457,14 +457,14 @@ export class StoreVaultSync {
     };
   }
 
-  private async writeDraftFrontmatter(draft: Project) {
+  private async writeProjectFrontmatter(draft: Project) {
     const file = this.app.vault.getAbstractFileByPath(draft.vaultPath);
     if (!file || !(file instanceof TFile)) {
       return;
     }
 
     await this.app.fileManager.processFrontMatter(file, (fm) => {
-      setDraftOnFrontmatterObject(fm, draft);
+      setProjectFrontmatter(fm, draft);
     });
 
     // for multi-scene projects, optionally set a property on each scene that holds its order within the project

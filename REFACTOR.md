@@ -8,7 +8,7 @@ This document is the source of truth for refactor scope and progress. Tick the t
 
 | #   | Phase                                              | Status | Notes |
 | --- | -------------------------------------------------- | ------ | ----- |
-| 1   | Naming hygiene + dead code removal                 | [ ]    |       |
+| 1   | Naming hygiene + dead code removal                 | [x]    | api.ts 145→72, project-utils.ts 304→249 LOC |
 | 2   | TypeScript hygiene + Obsidian internals            | [ ]    |       |
 | 3   | Strip dead semantics + public API rename           | [ ]    |       |
 | 4   | Decompose `model/` grab-bags                       | [ ]    |       |

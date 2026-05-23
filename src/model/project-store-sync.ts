@@ -16,7 +16,6 @@ import {
   pluginSettings,
   selectedProjectPath,
   updateScenesProject,
-  waitingForSync,
 } from "./stores";
 import {
   decodeFlatScenes,
@@ -26,6 +25,7 @@ import {
 } from "src/model/project-utils";
 import { fileNameFromPath } from "src/lib/path";
 import { findScene, sceneFolderPath, scenePath } from "./scene-navigation";
+import { SyncWaiter } from "./sync-waiter";
 
 type FileWithMetadata = {
   file: TFile;
@@ -45,20 +45,28 @@ export function resolveIfLongformFile(
 }
 
 /**
- * Observes any file with a `longform` metadata entry and keeps its
- * metadata and associated scenes (if any) updated in the `projects`
- * store.
+ * Bidirectional sync between the in-memory `projects` Svelte store and
+ * on-disk `Index.md` files in the vault.
  *
- * Subscribes to the `projects` store and records changes in it to disk.
+ * Disk → memory: scans markdown files at startup for `longform:` frontmatter,
+ * parses each into a `Project`, populates the store; then listens for vault
+ * events (`metadataCache.on("changed")` plus `vault.on("create"|"delete"|"rename")`)
+ * to keep the store current as the user edits files outside the plugin UI.
  *
- * Thus, keeps both store and vault in sync.
+ * Memory → disk: subscribes to the `projects` store; when the Longform UI
+ * mutates it (title change, scene reorder, ebook metadata edit, etc.) the
+ * corresponding `Index.md`'s frontmatter is rewritten via
+ * `app.fileManager.processFrontMatter`.
+ *
+ * `initialize()` defers the initial scan via `SyncWaiter` so the plugin
+ * doesn't race against Obsidian's first-party cloud Sync at startup.
  */
-export class StoreVaultSync {
+export class ProjectStoreSync {
   private app: App;
   private vault: Vault;
   private metadataCache: MetadataCache;
   private registerEvent: (ref: EventRef) => void;
-  private settlingTime = 30000; // fallback settling time
+  private syncWaiter: SyncWaiter;
 
   private lastKnownProjectsByPath: Record<string, Project> = {};
   private unsubscribers: Unsubscriber[] = [];
@@ -70,85 +78,15 @@ export class StoreVaultSync {
     this.vault = app.vault;
     this.metadataCache = app.metadataCache;
     this.registerEvent = registerEvent;
+    this.syncWaiter = new SyncWaiter(app);
   }
 
   destroy(): void {
     this.unsubscribers.forEach((u) => u());
   }
 
-  private isSyncEnabled(): boolean {
-    try {
-      const syncPlugin = this.app.internalPlugins?.plugins?.sync;
-      return syncPlugin?.enabled === true;
-    } catch {
-      return false;
-    }
-  }
-
-  private async waitForSync(): Promise<void> {
-    const settings = get(pluginSettings);
-
-    // First check if "wait for sync" in setting or the Sync plugin itself is enabled
-    if (!settings.waitForSync || !this.isSyncEnabled()) {
-      return Promise.resolve();
-    }
-
-    try {
-      const sync = this.app.internalPlugins.plugins.sync?.instance;
-
-      // Set waitingForSync to disable watchers and enable loading spinner
-      waitingForSync.set(true);
-
-      // Check if we can't access the sync status (possibly due to Sync plugin API changes), use fallback wait if not
-      if (!sync?.syncing) {
-        return this.fallbackWait();
-      }
-
-      return new Promise((resolve) => {
-        if (!sync.syncing) {
-          waitingForSync.set(false);
-          resolve();
-          return;
-        }
-
-        console.log("[Longform] Waiting for active sync to complete...");
-
-        // Poll sync status every second
-        const interval = setInterval(() => {
-          if (!sync.syncing) {
-            clearInterval(interval);
-            clearTimeout(timeout); // Clear the timeout when sync completes
-            console.log("[Longform] Sync complete.");
-            waitingForSync.set(false);
-            resolve();
-          }
-        }, 1000);
-
-        // Add a timeout just in case sync never completes
-        const timeout = setTimeout(() => {
-          clearInterval(interval);
-          console.log("[Longform] Sync wait timed out");
-          waitingForSync.set(false);
-          resolve();
-        }, this.settlingTime);
-      });
-    } catch {
-      waitingForSync.set(false);
-      return this.fallbackWait();
-    }
-  }
-
-  private async fallbackWait(): Promise<void> {
-    const settings = get(pluginSettings);
-    if (!settings.fallbackWaitEnabled) {
-      return Promise.resolve();
-    }
-
-    return new Promise((resolve) => setTimeout(resolve, settings.fallbackWaitTime * 1000));
-  }
-
   async initialize() {
-    await this.waitForSync();
+    await this.syncWaiter.awaitInitialSync();
     await this.discoverProjects();
     // Register vault listeners only after the initial discover/load
     // completes, so handlers cannot fire during initialization.

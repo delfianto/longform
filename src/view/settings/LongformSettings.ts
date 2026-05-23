@@ -6,7 +6,7 @@ import type LongformPlugin from "../../main";
 import { pluginSettings, userScriptSteps } from "src/model/stores";
 import { FolderSuggest } from "./folder-suggest";
 import { FileSuggest } from "./file-suggest";
-import { syncSceneIndices } from "src/model/store-vault-sync";
+import { syncSceneIndices } from "src/model/project-store-sync";
 
 export class LongformSettingsTab extends PluginSettingTab {
   plugin: LongformPlugin;

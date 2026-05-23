@@ -18,7 +18,7 @@ import { ICON_NAME, ICON_SVG } from "./view/icon";
 import { LeafStyler } from "./view/leaf-styler";
 import { LongformSettingsTab } from "./view/settings/LongformSettings";
 import { UserScriptObserver } from "./model/user-script-observer";
-import { StoreVaultSync } from "./model/store-vault-sync";
+import { ProjectStoreSync } from "./model/project-store-sync";
 import { WorkflowStorage } from "./model/workflow-storage";
 import { selectedProject, selectedProjectPath, initialized, pluginSettings } from "./model/stores";
 import { addCommands } from "./commands";
@@ -33,7 +33,7 @@ export default class LongformPlugin extends Plugin {
   cachedSettings: LongformPluginSettings | null = null;
   private unsubscribers: Unsubscriber[] = [];
   private userScriptObserver: UserScriptObserver;
-  private storeVaultSync: StoreVaultSync;
+  private projectStoreSync: ProjectStoreSync;
   private workflowStorage: WorkflowStorage;
   wordCountTracker: WordCountTracker;
   public api: LongformAPI;
@@ -91,7 +91,7 @@ export default class LongformPlugin extends Plugin {
     await this.loadSettings();
     this.addSettingTab(new LongformSettingsTab(this.app, this));
 
-    this.storeVaultSync = new StoreVaultSync(this.app, this.registerEvent.bind(this));
+    this.projectStoreSync = new ProjectStoreSync(this.app, this.registerEvent.bind(this));
 
     this.app.workspace.onLayoutReady(this.postLayoutInit.bind(this));
 
@@ -121,7 +121,7 @@ export default class LongformPlugin extends Plugin {
 
   onunload(): void {
     this.userScriptObserver.destroy();
-    this.storeVaultSync.destroy();
+    this.projectStoreSync.destroy();
     this.unsubscribers.forEach((u) => u());
     this.wordCountTracker.destroy();
     this.app.workspace
@@ -161,9 +161,10 @@ export default class LongformPlugin extends Plugin {
   private async postLayoutInit(): Promise<void> {
     this.userScriptObserver.beginObserving();
 
-    // Initialize StoreVaultSync with sync awareness; this also registers
-    // its vault listeners once discovery completes.
-    await this.storeVaultSync.initialize();
+    // Initialize project ↔ vault sync. SyncWaiter (composed inside) gates
+    // discovery until Obsidian's first-party Sync plugin settles; vault
+    // listeners are registered at the end of initialize().
+    await this.projectStoreSync.initialize();
 
     this.watchProjects();
 

@@ -190,7 +190,13 @@ export default class LongformPlugin extends Plugin {
     this.userScriptObserver = new UserScriptObserver(this.app.vault, userScriptFolder);
     await this.userScriptObserver.loadUserSteps();
 
-    let _workflows = settings["workflows"];
+    // Load workflows: vault file takes priority, fall back to data.json for one-time migration.
+    let _workflows = await this.loadWorkflowsFromVault();
+
+    if (!_workflows && settings["workflows"]) {
+      console.log("[Longform] Migrating workflows from data.json to vault storage.");
+      _workflows = settings["workflows"];
+    }
 
     if (!_workflows) {
       console.log("[Longform] No workflows found; adding default workflow.");
@@ -202,6 +208,9 @@ export default class LongformPlugin extends Plugin {
       deserializedWorkflows[key as string] = deserializeWorkflow(value as SerializedWorkflow);
     });
     workflows.set(deserializedWorkflows);
+
+    // Persist to vault (creates the file if migrating or first run).
+    await this.saveWorkflowsToVault();
 
     const onStatusClick = () => {
       const file = get(activeFile);
@@ -229,21 +238,52 @@ export default class LongformPlugin extends Plugin {
     );
   }
 
+  private get workflowsDir(): string {
+    return normalizePath(`${this.app.vault.configDir}/longform`);
+  }
+
+  private get workflowsPath(): string {
+    return normalizePath(`${this.workflowsDir}/workflows.json`);
+  }
+
+  private async loadWorkflowsFromVault(): Promise<Record<string, SerializedWorkflow> | null> {
+    try {
+      if (await this.app.vault.adapter.exists(this.workflowsPath)) {
+        const raw = await this.app.vault.adapter.read(this.workflowsPath);
+        return JSON.parse(raw);
+      }
+    } catch (e) {
+      console.error("[Longform] Failed to read workflows from vault:", e);
+    }
+    return null;
+  }
+
+  async saveWorkflowsToVault(): Promise<void> {
+    const _workflows = get(workflows);
+    const serialized: Record<string, SerializedWorkflow> = {};
+    Object.entries(_workflows).forEach(([key, value]) => {
+      serialized[key] = serializeWorkflow(value);
+    });
+
+    try {
+      if (!(await this.app.vault.adapter.exists(this.workflowsDir))) {
+        await this.app.vault.adapter.mkdir(this.workflowsDir);
+      }
+      await this.app.vault.adapter.write(
+        this.workflowsPath,
+        JSON.stringify(serialized, null, 2),
+      );
+    } catch (e) {
+      console.error("[Longform] Failed to save workflows to vault:", e);
+    }
+  }
+
   async saveSettings(): Promise<void> {
     if (!this.cachedSettings) {
       return;
     }
 
-    const _workflows = get(workflows);
-    const serializedWorkflows: Record<string, SerializedWorkflow> = {};
-    Object.entries(_workflows).forEach(([key, value]) => {
-      serializedWorkflows[key as string] = serializeWorkflow(value);
-    });
-
-    await this.saveData({
-      ...this.cachedSettings,
-      workflows: serializedWorkflows,
-    });
+    await this.saveData(this.cachedSettings);
   }
 
   private async postLayoutInit(): Promise<void> {
@@ -279,7 +319,7 @@ export default class LongformPlugin extends Plugin {
 
     // Workflows
     const saveWorkflows = debounce(() => {
-      this.saveSettings();
+      this.saveWorkflowsToVault();
     }, 3000);
     this.unsubscribeWorkflows = workflows.subscribe(() => {
       if (!get(initialized)) {

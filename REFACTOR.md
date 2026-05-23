@@ -14,7 +14,7 @@ This document is the source of truth for refactor scope and progress. Tick the t
 | 4   | Decompose `model/` grab-bags                       | [x]    | note-utils split 3 ways; EBOOK_STRING_KEYS hoisted; updateProject/updateScenesProject helpers added |
 | 5   | Refactor `store-vault-sync.ts` event handlers      | [x]    | handlers as dispatchers, 6 intent-named helpers; isInitializing gone; vault-listener helper in main.ts |
 | 6   | Test coverage for v3 invariants                    | [x]    | 14 → 54 tests; new files: scene-navigation, scene-stats, word-count-tracker, serialization |
-| 7   | Decompose `main.ts` (opportunistic)                | [ ]    |       |
+| 7   | Decompose `main.ts` (opportunistic)                | [x]    | main.ts 350→239 LOC; WorkflowStorage + LeafStyler extracted |
 
 Status legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 

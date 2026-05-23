@@ -20,7 +20,7 @@
   let showWordCount = $state(true);
 
   function titleChanged(event: Event) {
-    let newTitle = (event.target as any).value;
+    let newTitle = (event.target as HTMLInputElement).value;
     projects.update((_projects) => {
       const currentIndex = _projects.findIndex(
         (p) => p.vaultPath === $selectedProjectPath
@@ -56,7 +56,7 @@
   });
 
   async function sceneFolderChanged(event: Event) {
-    const newFolder = (event.target as any).value;
+    const newFolder = (event.target as HTMLInputElement).value;
     if (newFolder.length <= 0 || !$selectedProject) {
       return;
     }
@@ -86,7 +86,7 @@
     }
   });
   async function sceneTemplateChanged(event: Event) {
-    let newTemplate = (event.target as any).value;
+    let newTemplate = (event.target as HTMLInputElement).value;
     if (!$selectedProject) {
       return;
     }

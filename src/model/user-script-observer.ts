@@ -16,7 +16,7 @@ export class UserScriptObserver {
   userScriptFolder: string | null;
   private unsubscribeScriptFolder: Unsubscriber;
   private initializedSteps = false;
-  private onScriptModify: any;
+  private onScriptModify: () => void;
 
   constructor(vault: Vault, userScriptFolder: string | null) {
     this.vault = vault;
@@ -59,7 +59,7 @@ export class UserScriptObserver {
     });
   }
 
-  async loadUserSteps(): Promise<CompileStep[]> {
+  async loadUserSteps(): Promise<CompileStep[] | undefined> {
     if (!this.userScriptFolder) {
       return;
     }

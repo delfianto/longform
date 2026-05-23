@@ -69,8 +69,7 @@
   });
 
   function selectedWorkflow(event: Event) {
-    // @ts-ignore
-    const title = event.target.value;
+    const title = (event.target as HTMLSelectElement).value;
     $projects[currentDraftIndex].workflow = title;
   }
 

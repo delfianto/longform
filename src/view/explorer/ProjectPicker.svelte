@@ -13,8 +13,7 @@
   let projectOptions = $derived(Object.keys($projectsByTitle));
 
   function projectSelected(event: Event) {
-    // @ts-ignore
-    const title = event.target.value;
+    const title = (event.target as HTMLSelectElement).value;
     if ($selectedProject && title === $selectedProject.title) {
       return;
     }

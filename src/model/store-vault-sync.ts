@@ -75,7 +75,6 @@ export class StoreVaultSync {
 
   private isSyncEnabled(): boolean {
     try {
-      // @ts-ignore - accessing private API
       const syncPlugin = this.app.internalPlugins?.plugins?.sync;
       return syncPlugin?.enabled === true;
     } catch {
@@ -92,8 +91,7 @@ export class StoreVaultSync {
     }
 
     try {
-      // @ts-ignore - accessing private API
-      const sync = this.app.internalPlugins.plugins.sync.instance;
+      const sync = this.app.internalPlugins.plugins.sync?.instance;
 
       // Set waitingForSync to disable watchers and enable loading spinner
       waitingForSync.set(true);
@@ -121,7 +119,6 @@ export class StoreVaultSync {
             waitingForSync.set(false);
             resolve();
           }
-          console.log("[Longform] Sync status:", sync.syncStatus);
         }, 1000);
 
         // Add a timeout just in case sync never completes

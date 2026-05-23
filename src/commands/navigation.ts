@@ -177,7 +177,7 @@ export const revealProjectFolder: CommandBuilder = (plugin) => ({
 
     try {
       const parent = plugin.app.vault.getAbstractFileByPath(path).parent;
-      (plugin.app as any).internalPlugins.plugins["file-explorer"].instance.revealInFolder(parent);
+      plugin.app.internalPlugins.plugins["file-explorer"]?.instance.revealInFolder(parent);
     } catch (error) {
       console.error("[Longform] Error calling file-explorer.revealInFolder:", error);
     }

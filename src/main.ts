@@ -125,11 +125,12 @@ export default class LongformPlugin extends Plugin {
       this.app.workspace.on("active-leaf-change", (leaf) => {
         if (leaf.view instanceof FileView) {
           activeFile.set(leaf.view.file);
-        }
-        // NOTE: This may break, as it's undocumented.
-        // Need some way to determine the empty state.
-        else if ((leaf.view as any).emptyTitleEl && (leaf.view as any).emptyStateEl) {
-          activeFile.set(null);
+        } else {
+          // Empty-state view detection — undocumented Obsidian API; may break.
+          const emptyView = leaf.view as { emptyTitleEl?: HTMLElement; emptyStateEl?: HTMLElement };
+          if (emptyView.emptyTitleEl && emptyView.emptyStateEl) {
+            activeFile.set(null);
+          }
         }
       }),
     );
@@ -395,7 +396,6 @@ export default class LongformPlugin extends Plugin {
         }
       }
 
-      // @ts-ignore
       const leafId = leaf.id;
       if (leafId) {
         leaf.view.containerEl.dataset.leafId = leafId;

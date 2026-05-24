@@ -37,7 +37,7 @@
         <select
           name="projects"
           class="dropdown"
-          value={$selectedProject ? $selectedProject.title : projectOptions[0]}
+          value={$selectedProject?.title}
           onchange={projectSelected}
         >
           {#each projectOptions as projectOption}

@@ -175,16 +175,14 @@
   }
 
   type StepItem = { id: string; index: number };
-  let items: StepItem[] = $state([]);
-
-  $effect(() => {
-    items = $currentWorkflow
+  let items: StepItem[] = $derived(
+    $currentWorkflow
       ? $currentWorkflow.steps.map((step, index) => ({
           id: step.id,
           index,
         }))
-      : [];
-  });
+      : []
+  );
 
   const sortableOptions: Sortable.Options = {
     animation: 150,
@@ -313,7 +311,7 @@
     </div>
     {#if $workflows[currentWorkflowName]}
       <SortableList
-        bind:items
+        {items}
         {sortableOptions}
         onorderChanged={itemOrderChanged}
         class="longform-sortable-step-list"

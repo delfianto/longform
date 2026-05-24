@@ -7,7 +7,7 @@ import {
   type MetadataCache,
   type Vault,
 } from "obsidian";
-import { cloneDeep, isEqual } from "lodash";
+import { cloneDeep, isEqual, sortBy } from "lodash";
 import { get, type Unsubscriber } from "svelte/store";
 
 import { EBOOK_STRING_KEYS, type EbookMetadata, type Project } from "./types";
@@ -114,6 +114,13 @@ export class ProjectStoreSync {
     );
     projectsStore.set(projectsToWrite);
 
+    // Ensure `selectedProjectPath` points to a discovered project. Without
+    // this, a fresh data.json (or a stale path referencing a deleted index
+    // file) leaves the picker showing a cosmetic default while the
+    // `selectedProject` derived store stays null — every tab gated on a
+    // selected project then renders empty.
+    this.ensureValidSelectedProject(projectsToWrite);
+
     console.log(
       `[Longform] Loaded and watching projects. Found ${projectFiles.length} projects in ${
         (new Date().getTime() - start) / 1000.0
@@ -121,6 +128,16 @@ export class ProjectStoreSync {
     );
 
     this.unsubscribers.push(projectsStore.subscribe(this.projectsStoreChanged.bind(this)));
+  }
+
+  private ensureValidSelectedProject(projects: Project[]): void {
+    if (projects.length === 0) return;
+    const currentPath = get(selectedProjectPath);
+    const stillExists = currentPath !== null && projects.some((p) => p.vaultPath === currentPath);
+    if (stillExists) return;
+    // Sort by title so the auto-pick matches the picker's alphabetical order.
+    const first = sortBy(projects, (p) => p.title)[0];
+    selectedProjectPath.set(first.vaultPath);
   }
 
   async fileMetadataChanged(file: TFile, _data: string, cache: CachedMetadata) {

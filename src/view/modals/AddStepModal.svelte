@@ -95,6 +95,12 @@
     font-family: inherit;
     font-size: inherit;
     color: inherit;
+    /* Button reset — these clickable cards used to be <div>s; <button> needs
+       width/display/shadow overrides so it fills the grid cell cleanly. */
+    display: block;
+    width: 100%;
+    box-shadow: none;
+    line-height: inherit;
   }
 
   .longform-compile-step:hover {

@@ -120,7 +120,6 @@ export default class LongformPlugin extends Plugin {
   }
 
   onunload(): void {
-    this.userScriptObserver.destroy();
     this.projectStoreSync.destroy();
     this.unsubscribers.forEach((u) => u());
     this.wordCountTracker.destroy();
@@ -140,8 +139,7 @@ export default class LongformPlugin extends Plugin {
     selectedProjectPath.set(_pluginSettings.selectedProjectPath);
 
     // User scripts load imperatively first; workflows may reference them.
-    const userScriptFolder = settings["userScriptFolder"];
-    this.userScriptObserver = new UserScriptObserver(this.app.vault, userScriptFolder);
+    this.userScriptObserver = new UserScriptObserver(this.app.vault);
     await this.userScriptObserver.loadUserSteps();
 
     this.workflowStorage = new WorkflowStorage(this.app);
@@ -159,8 +157,6 @@ export default class LongformPlugin extends Plugin {
   }
 
   private async postLayoutInit(): Promise<void> {
-    this.userScriptObserver.beginObserving();
-
     // Initialize project ↔ vault sync. SyncWaiter (composed inside) gates
     // discovery until Obsidian's first-party Sync plugin settles; vault
     // listeners are registered at the end of initialize().

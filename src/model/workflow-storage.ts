@@ -5,6 +5,7 @@ import { get, type Unsubscriber } from "svelte/store";
 import { DEFAULT_WORKFLOWS } from "src/compile";
 import type { Workflow } from "src/compile";
 import { deserializeWorkflow, serializeWorkflow } from "src/compile/serialization";
+import { longformDataDir } from "src/lib/path";
 import { initialized, workflows } from "./stores";
 import type { SerializedWorkflow } from "./types";
 
@@ -21,7 +22,7 @@ export class WorkflowStorage {
   }
 
   private get dir(): string {
-    return normalizePath(`${this.app.vault.configDir}/longform`);
+    return longformDataDir(this.app.vault);
   }
 
   private get path(): string {

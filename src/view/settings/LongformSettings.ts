@@ -4,7 +4,6 @@ import { get } from "svelte/store";
 
 import type LongformPlugin from "../../main";
 import { pluginSettings, userScriptSteps } from "src/model/stores";
-import { FolderSuggest } from "./folder-suggest";
 import { FileSuggest } from "./file-suggest";
 
 export class LongformSettingsTab extends PluginSettingTab {
@@ -59,23 +58,6 @@ export class LongformSettingsTab extends PluginSettingTab {
 
     new Setting(containerEl).setName("Compile").setHeading();
 
-    new Setting(containerEl)
-      .setName("User script step folder")
-      .setDesc(
-        ".js files in this folder will be available as User Script Steps in the Compile panel.",
-      )
-      .addSearch((cb) => {
-        new FolderSuggest(this.app, cb.inputEl);
-        cb.setPlaceholder("my/script/steps/")
-          .setValue(settings.userScriptFolder ?? "")
-          .onChange((v) => {
-            pluginSettings.update((s) => ({
-              ...s,
-              userScriptFolder: v,
-            }));
-          });
-      });
-
     this.stepsSummary = containerEl.createSpan();
     this.stepsList = containerEl.createEl("ul", {
       cls: "longform-settings-user-steps",
@@ -109,7 +91,7 @@ export class LongformSettingsTab extends PluginSettingTab {
     );
     containerEl.createEl("p", { cls: "setting-item-description" }, (el) => {
       el.innerHTML =
-        "User Script Steps are automatically loaded from this folder. Changes to .js files in this folder are synced with Longform after a slight delay. If your script does not appear here or in the Compile tab, you may have an error in your script—check the dev console for it.";
+        "User Script Steps are loaded from <code>&lt;vault&gt;/.obsidian/longform/*.js</code>. Changes are picked up automatically after a short debounce. If your script does not appear here or in the Compile tab, you may have an error in your script — check the dev console.";
     });
 
     new Setting(containerEl).setName("Troubleshooting").setHeading();

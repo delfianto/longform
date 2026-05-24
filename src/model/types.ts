@@ -81,7 +81,6 @@ export interface LongformPluginSettings {
   version: number;
   selectedProjectPath: string | null;
   workflows: Record<string, SerializedWorkflow> | null;
-  userScriptFolder: string | null;
   numberScenes: boolean;
   sceneTemplate: string | null;
   waitForSync: boolean;
@@ -93,7 +92,6 @@ export const DEFAULT_SETTINGS: LongformPluginSettings = {
   version: LONGFORM_CURRENT_PLUGIN_DATA_VERSION,
   selectedProjectPath: null,
   workflows: null,
-  userScriptFolder: null,
   numberScenes: false,
   sceneTemplate: null,
   waitForSync: false,
@@ -104,7 +102,6 @@ export const DEFAULT_SETTINGS: LongformPluginSettings = {
 export const TRACKED_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
   "version",
   "selectedProjectPath",
-  "userScriptFolder",
   "numberScenes",
   "sceneTemplate",
   "waitForSync",
@@ -113,7 +110,6 @@ export const TRACKED_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
 ];
 
 export const PASSTHROUGH_SAVE_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
-  "userScriptFolder",
   "numberScenes",
   "sceneTemplate",
   "waitForSync",

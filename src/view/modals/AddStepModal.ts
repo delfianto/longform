@@ -1,4 +1,5 @@
 import { App, Modal } from "obsidian";
+import { mount } from "svelte";
 
 import AddStepModalContent from "./AddStepModal.svelte";
 import { appContext } from "src/view/utils";
@@ -17,7 +18,7 @@ export default class AddStepModal extends Modal {
     const context = appContext(this);
     context.set("close", () => this.close());
 
-    new AddStepModalContent({
+    mount(AddStepModalContent, {
       target: entrypoint,
       context,
     });

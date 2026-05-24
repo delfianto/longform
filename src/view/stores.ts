@@ -12,7 +12,7 @@ export type ExplorerTab = "Scenes" | "Project" | "Compile";
 export const selectedTab = writable<ExplorerTab>("Project");
 
 const statsFor = (
-  file: TFile,
+  file: TFile | null,
   project: Project | null | undefined,
   wordCounts: ProjectWordCounts,
 ): SceneWordStats | null => {
@@ -26,7 +26,5 @@ const statsFor = (
 export const selectedProjectWordCountStatus = derived(
   [activeFile, selectedProject, projectWordCounts],
   ([$activeFile, $selectedProject, $projectWordCounts]) =>
-    $activeFile && $selectedProject
-      ? statsFor($activeFile, $selectedProject, $projectWordCounts)
-      : null,
+    $selectedProject ? statsFor($activeFile, $selectedProject, $projectWordCounts) : null,
 );

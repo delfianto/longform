@@ -1,89 +1,80 @@
-import { drafts, selectedDraft } from "src/model/stores";
-import type { MultipleSceneDraft } from "src/model/types";
+import { projects, selectedProject } from "src/model/stores";
+import type { MultipleSceneProject } from "src/model/types";
 import { get } from "svelte/store";
 
-const getSelectedDraftWithIndex = () => {
-  const draft = get(selectedDraft) as MultipleSceneDraft;
-  if (!draft) {
-    return { index: -1, draft };
+const getSelectedProjectWithIndex = () => {
+  const project = get(selectedProject) as MultipleSceneProject;
+  if (!project) {
+    return { index: -1, project };
   }
-  const index = get(drafts).findIndex((d) => d.vaultPath === draft.vaultPath);
-  return { index, draft };
+  const index = get(projects).findIndex((p) => p.vaultPath === project.vaultPath);
+  return { index, project };
 };
 
 export const addScene = (fileName: string) => {
-  const { index, draft } = getSelectedDraftWithIndex();
-  if (!draft) {
-    return;
-  }
-  if (index >= 0 && draft.format === "scenes") {
-    drafts.update((d) => {
-      const targetDraft = d[index] as MultipleSceneDraft;
-      (d[index] as MultipleSceneDraft).scenes = [
-        ...targetDraft.scenes,
+  const { index, project } = getSelectedProjectWithIndex();
+  if (!project) return;
+  if (index >= 0 && project.format === "scenes") {
+    projects.update((ps) => {
+      const target = ps[index] as MultipleSceneProject;
+      (ps[index] as MultipleSceneProject).scenes = [
+        ...target.scenes,
         { title: fileName, indent: 0 },
       ];
-      (d[index] as MultipleSceneDraft).unknownFiles =
-        targetDraft.unknownFiles.filter((f) => f !== fileName);
-      return d;
+      (ps[index] as MultipleSceneProject).unknownFiles = target.unknownFiles.filter(
+        (f) => f !== fileName,
+      );
+      return ps;
     });
   }
 };
 
 export const ignoreScene = (fileName: string) => {
-  const { index, draft } = getSelectedDraftWithIndex();
-  if (!draft) {
-    return;
-  }
-  if (index >= 0 && draft.format === "scenes") {
-    drafts.update((d) => {
-      const targetDraft = d[index] as MultipleSceneDraft;
-      (d[index] as MultipleSceneDraft).scenes = targetDraft.scenes.filter(
-        (it) => it.title != fileName
+  const { index, project } = getSelectedProjectWithIndex();
+  if (!project) return;
+  if (index >= 0 && project.format === "scenes") {
+    projects.update((ps) => {
+      const target = ps[index] as MultipleSceneProject;
+      (ps[index] as MultipleSceneProject).scenes = target.scenes.filter(
+        (it) => it.title !== fileName,
       );
-      (d[index] as MultipleSceneDraft).ignoredFiles = [
-        ...targetDraft.ignoredFiles,
-        fileName,
-      ];
-      (d[index] as MultipleSceneDraft).unknownFiles =
-        targetDraft.unknownFiles.filter((f) => f !== fileName);
-      return d;
+      (ps[index] as MultipleSceneProject).ignoredFiles = [...(target.ignoredFiles ?? []), fileName];
+      (ps[index] as MultipleSceneProject).unknownFiles = target.unknownFiles.filter(
+        (f) => f !== fileName,
+      );
+      return ps;
     });
   }
 };
 
 export const addAll = () => {
-  const { index, draft } = getSelectedDraftWithIndex();
-  if (!draft) {
-    return;
-  }
-  if (index >= 0 && draft.format === "scenes") {
-    drafts.update((d) => {
-      const targetDraft = d[index] as MultipleSceneDraft;
-      (d[index] as MultipleSceneDraft).scenes = [
-        ...targetDraft.scenes,
-        ...targetDraft.unknownFiles.map((f) => ({ title: f, indent: 0 })),
+  const { index, project } = getSelectedProjectWithIndex();
+  if (!project) return;
+  if (index >= 0 && project.format === "scenes") {
+    projects.update((ps) => {
+      const target = ps[index] as MultipleSceneProject;
+      (ps[index] as MultipleSceneProject).scenes = [
+        ...target.scenes,
+        ...target.unknownFiles.map((f) => ({ title: f, indent: 0 })),
       ];
-      (d[index] as MultipleSceneDraft).unknownFiles = [];
-      return d;
+      (ps[index] as MultipleSceneProject).unknownFiles = [];
+      return ps;
     });
   }
 };
 
 export const ignoreAll = () => {
-  const { index, draft } = getSelectedDraftWithIndex();
-  if (!draft) {
-    return;
-  }
-  if (index >= 0 && draft.format === "scenes") {
-    drafts.update((d) => {
-      const targetDraft = d[index] as MultipleSceneDraft;
-      (d[index] as MultipleSceneDraft).ignoredFiles = [
-        ...targetDraft.ignoredFiles,
-        ...targetDraft.unknownFiles,
+  const { index, project } = getSelectedProjectWithIndex();
+  if (!project) return;
+  if (index >= 0 && project.format === "scenes") {
+    projects.update((ps) => {
+      const target = ps[index] as MultipleSceneProject;
+      (ps[index] as MultipleSceneProject).ignoredFiles = [
+        ...(target.ignoredFiles ?? []),
+        ...target.unknownFiles,
       ];
-      (d[index] as MultipleSceneDraft).unknownFiles = [];
-      return d;
+      (ps[index] as MultipleSceneProject).unknownFiles = [];
+      return ps;
     });
   }
 };

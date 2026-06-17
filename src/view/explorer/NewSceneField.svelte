@@ -1,28 +1,25 @@
 <script lang="ts">
   import { getContext } from "svelte";
-  import { selectedDraft } from "src/model/stores";
+  import { selectedProject } from "src/model/stores";
   import { invalidFilenameCharacters, isValidFilename } from "../utils";
 
-  let newSceneName: string = "";
-  let newSceneInput: HTMLElement;
+  let newSceneName = $state("");
+  let newSceneInput: HTMLElement = $state(null);
 
   const sceneNames =
-    $selectedDraft.format === "scenes"
-      ? $selectedDraft.scenes.map((s) => s.title)
+    $selectedProject?.format === "scenes"
+      ? $selectedProject.scenes.map((s) => s.title)
       : [];
 
-  let error: string | null = null;
-  $: {
-    if (newSceneName.length === 0) {
-      error = null;
-    } else if (sceneNames.contains(newSceneName)) {
-      error = "A scene with this name already exists in this draft.";
-    } else if (!isValidFilename(newSceneName)) {
-      error = `A scene name cannot contain the characters: ${invalidFilenameCharacters()}`;
-    } else {
-      error = null;
-    }
-  }
+  let error: string | null = $derived(
+    newSceneName.length === 0
+      ? null
+      : sceneNames.contains(newSceneName)
+        ? "A scene with this name already exists in this project."
+        : !isValidFilename(newSceneName)
+          ? `A scene name cannot contain the characters: ${invalidFilenameCharacters()}`
+          : null
+  );
 
   const onNewScene: (name: string, open: boolean) => void =
     getContext("onNewScene");
@@ -41,7 +38,7 @@
     placeholder="New Scene"
     bind:value={newSceneName}
     bind:this={newSceneInput}
-    on:keydown={(e) => {
+    onkeydown={(e) => {
       if (e.key === "Enter") {
         onNewSceneEnter(!e.shiftKey);
       } else if (e.key === "Escape") {
@@ -74,5 +71,4 @@
   #new-scene.invalid {
     color: var(--text-error);
   }
-
 </style>

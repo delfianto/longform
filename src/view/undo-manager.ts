@@ -6,7 +6,7 @@ import type { KeymapContext } from "obsidian";
 export type UndoListener = (
   type: "undo" | "redo",
   evt: KeyboardEvent,
-  ctx: KeymapContext
+  ctx: KeymapContext,
 ) => boolean;
 
 export class UndoManager {

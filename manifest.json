@@ -1,11 +1,10 @@
 {
   "id": "longform",
-  "name": "Longform",
-  "version": "2.1.0",
+  "name": "Longform (fork)",
+  "version": "3.0.0",
   "minAppVersion": "1.0",
-  "description": "Write novels, screenplays, and other long projects in Obsidian.",
-  "author": "Kevin Barrett",
-  "authorUrl": "https://kevinbarrett.org",
-  "fundingUrl": "https://github.com/sponsors/kevboh",
+  "description": "Write novels, screenplays, and other long projects in Obsidian. Fork by delfianto — modernized stack (Svelte 5, Vite, Bun), simplified project model, vault-persisted workflows.",
+  "author": "Dwi Elfianto",
+  "authorUrl": "https://github.com/delfianto",
   "isDesktopOnly": false
 }

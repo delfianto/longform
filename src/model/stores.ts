@@ -1,133 +1,90 @@
 import { derived, writable } from "svelte/store";
-import { groupBy, sortBy } from "lodash";
+import { sortBy } from "lodash";
 
 import type {
-  WordCountSession,
-  Draft,
   LongformPluginSettings,
-  DraftWordCounts,
+  MultipleSceneProject,
+  Project,
+  ProjectWordCounts,
 } from "./types";
-import type {
-  Workflow,
-  CompileStep,
-} from "src/compile/steps/abstract-compile-step";
+import type { Workflow, CompileStep } from "src/compile/steps/abstract-compile-step";
 
 // WRITEABLE STORES
 
-/**
- * Writeable store of whether the plugin has been initialized or not.
- * Set to `true` on the completion of the workspace's onLayoutReady callback.
- */
 export const initialized = writable<boolean>(false);
-
-/**
- * Writeable store of plugin settings, serialized as json to the plugin's data.json file.
- */
 export const pluginSettings = writable<LongformPluginSettings>(null);
 
-/**
- * Writeable store of all discovered drafts. Not coalesced into projects.
- */
-export const drafts = writable<Draft[]>([]);
+/** All discovered longform projects. */
+export const projects = writable<Project[]>([]);
 
-/**
- * Writeable store of the full, normalized path to the currently selected draft index file.
- */
-export const selectedDraftVaultPath = writable<string | null>(null);
+/** Full, normalized vault path to the currently selected project's index file. */
+export const selectedProjectPath = writable<string | null>(null);
 
-/**
- * Writeable store of all known workflows, indexed by name.
- */
 export const workflows = writable<Record<string, Workflow>>({});
-
-/**
- * Writeable store of all loaded user script steps, or `null` if none are loaded.
- */
 export const userScriptSteps = writable<CompileStep[] | null>(null);
-
-/**
- * Writeable store of recent writing session word counts, ordered by start date descending.
- */
-export const sessions = writable<WordCountSession[]>([]);
-
-/**
- * Writeable store mapping draft vault paths to either a map of scene names to word counts or,
- * in the case of single-scene drafts, the word count.
- */
-export const draftWordCounts = writable<DraftWordCounts>({});
-
-/**
- * Writeable store of whether the plugin is waiting for sync.
- */
+export const projectWordCounts = writable<ProjectWordCounts>({});
 export const waitingForSync = writable<boolean>(false);
 
 // DERIVED STORES
 
-/**
- * Derived store of all projects—drafts grouped by title.
- *
- * If a draft does not have a title, will use filename without extension
- * (and thus be a single-draft project unless you use the same filename).
- */
-export const projects = derived([drafts], ([$drafts]) => {
-  const getTitle = (draft: Draft): string => {
-    return draft.title;
-  };
-
-  const sortedDrafts = sortBy($drafts, getTitle);
-  return groupBy(sortedDrafts, getTitle) as Record<string, Draft[]>;
+/** All projects indexed by title (one project per title). */
+export const projectsByTitle = derived([projects], ([$projects]) => {
+  const sorted = sortBy($projects, (p) => p.title);
+  const result: Record<string, Project> = {};
+  for (const p of sorted) {
+    result[p.title] = p;
+  }
+  return result;
 });
 
-/**
- * Derived store of the draft corresponding to the currently selected vault path.
- */
-export const selectedDraft = derived(
-  [drafts, selectedDraftVaultPath],
-  ([$drafts, $selectedDraftVaultPath]) => {
-    if (!$selectedDraftVaultPath) {
-      return null;
-    }
-    return $drafts.find((d) => d.vaultPath === $selectedDraftVaultPath) ?? null;
-  }
-);
-
-/**
- * Derived store of all drafts whose title matches that of the currently selected draft.
- */
+/** The currently selected project, resolved from selectedProjectPath. */
 export const selectedProject = derived(
-  [projects, selectedDraft],
-  ([$projects, $selectedDraft]) => {
-    if (!$selectedDraft) {
-      return null;
-    }
-
-    return $projects[$selectedDraft.title] ?? null;
-  }
+  [projects, selectedProjectPath],
+  ([$projects, $selectedProjectPath]) => {
+    if (!$selectedProjectPath) return null;
+    return $projects.find((p) => p.vaultPath === $selectedProjectPath) ?? null;
+  },
 );
 
-/**
- * Derived store that is true if the current project consists of multiple drafts.
- */
-export const selectedProjectHasMultipleDrafts = derived(
-  [selectedProject],
-  ([$selectedProject]) => $selectedProject && $selectedProject.length > 1
-);
-
-/**
- * Derived store corresponding to the current draft's workflow, if there is a current draft
- * and it has an associated workflow.
- */
+/** The currently selected project's workflow, if any. */
 export const currentWorkflow = derived(
-  [workflows, selectedDraft],
-  ([$workflows, $selectedDraft]) => {
-    if ($selectedDraft) {
-      const currentWorkflowName = $selectedDraft.workflow;
-      if (currentWorkflowName) {
-        const workflow = $workflows[currentWorkflowName];
-        return workflow;
-      }
-      return null;
+  [workflows, selectedProject],
+  ([$workflows, $selectedProject]) => {
+    if ($selectedProject) {
+      const name = $selectedProject.workflow;
+      if (name) return $workflows[name];
     }
     return null;
-  }
+  },
 );
+
+// STORE HELPERS
+
+/**
+ * Find a project by vault path and apply `mutator` to it in place.
+ * No-op if no project matches `vaultPath`.
+ */
+export function updateProject(vaultPath: string, mutator: (p: Project) => void): void {
+  projects.update((all) =>
+    all.map((p) => {
+      if (p.vaultPath === vaultPath) mutator(p);
+      return p;
+    }),
+  );
+}
+
+/**
+ * Like {@link updateProject}, but narrows to multi-scene projects only.
+ * No-op if the matched project isn't `format: "scenes"`.
+ */
+export function updateScenesProject(
+  vaultPath: string,
+  mutator: (p: MultipleSceneProject) => void,
+): void {
+  projects.update((all) =>
+    all.map((p) => {
+      if (p.vaultPath === vaultPath && p.format === "scenes") mutator(p);
+      return p;
+    }),
+  );
+}

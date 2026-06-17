@@ -1,32 +1,29 @@
 import { get } from "svelte/store";
 
 import { activeFile } from "src/view/stores";
-import { drafts as draftsStore } from "src/model/stores";
+import { projects } from "src/model/stores";
 import { findScene } from "src/model/scene-navigation";
 import type { CommandBuilder } from "./types";
 
-const checkIndent = (
-  checking: boolean,
-  action: "indent" | "unindent"
-): boolean | void => {
+const checkIndent = (checking: boolean, action: "indent" | "unindent"): boolean | void => {
   const path = get(activeFile).path;
-  const drafts = get(draftsStore);
-  const result = findScene(path, drafts);
+  const allProjects = get(projects);
+  const result = findScene(path, allProjects);
   if (checking && result) {
     return action === "indent" || result.currentIndent > 0;
   }
 
   if (result) {
-    draftsStore.update((_drafts) => {
-      return _drafts.map((d) => {
-        if (d.vaultPath !== result.draft.vaultPath || d.format !== "scenes") {
-          return d;
+    projects.update((all) => {
+      return all.map((p) => {
+        if (p.vaultPath !== result.project.vaultPath || p.format !== "scenes") {
+          return p;
         }
 
         const delta = action === "indent" ? 1 : -1;
 
-        d.scenes[result.index].indent = d.scenes[result.index].indent + delta;
-        return d;
+        p.scenes[result.index].indent = p.scenes[result.index].indent + delta;
+        return p;
       });
     });
   }

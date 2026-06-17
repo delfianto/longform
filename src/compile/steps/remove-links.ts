@@ -1,14 +1,5 @@
-import type {
-  CompileContext,
-  CompileInput,
-  CompileManuscriptInput,
-  CompileSceneInput,
-} from "..";
-import {
-  CompileStepKind,
-  makeBuiltinStep,
-  CompileStepOptionType,
-} from "./abstract-compile-step";
+import type { CompileContext, CompileInput, CompileManuscriptInput, CompileSceneInput } from "..";
+import { CompileStepKind, makeBuiltinStep, CompileStepOptionType } from "./abstract-compile-step";
 
 export const RemoveLinksStep = makeBuiltinStep({
   id: "remove-links",
@@ -35,9 +26,7 @@ export const RemoveLinksStep = makeBuiltinStep({
   },
   compile(input: CompileInput, context: CompileContext): CompileInput {
     const removeWikilinks = context.optionValues["remove-wikilinks"] as boolean;
-    const removeExternalLinks = context.optionValues[
-      "remove-external-links"
-    ] as boolean;
+    const removeExternalLinks = context.optionValues["remove-external-links"] as boolean;
 
     const replaceLinks = (contents: string) => {
       if (removeWikilinks) {
@@ -105,17 +94,14 @@ export function replaceWikiLinks(contents: string): string {
             if (startOfAlias >= 0) {
               if (additionalAlias) {
                 // remove all instances of "|"
-                replacement = contents
-                  .slice(startOfAlias, end - 1)
-                  .replace(/\|/gm, "");
+                replacement = contents.slice(startOfAlias, end - 1).replace(/\|/gm, "");
               } else {
                 replacement = contents.slice(startOfAlias, end - 1);
               }
             } else {
               replacement = contents.slice(i + 1, end - 1);
             }
-            contents =
-              contents.slice(0, i - 1) + replacement + contents.slice(end + 1);
+            contents = contents.slice(0, i - 1) + replacement + contents.slice(end + 1);
             // can skip the next character
             i = i - 1;
           }
@@ -164,8 +150,7 @@ export function replaceExternalLinks(contents: string): string {
             i = i - 1;
           } else {
             const replacement = contents.slice(i + 1, aliasEnd);
-            contents =
-              contents.slice(0, i) + replacement + contents.slice(end + 1);
+            contents = contents.slice(0, i) + replacement + contents.slice(end + 1);
           }
           end = -1;
           aliasEnd = -1;

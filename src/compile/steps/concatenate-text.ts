@@ -23,10 +23,7 @@ export const ConcatenateTextStep = makeBuiltinStep({
       },
     ],
   },
-  compile(
-    input: CompileInput,
-    context: CompileContext
-  ): CompileManuscriptInput {
+  compile(input: CompileInput, context: CompileContext): CompileManuscriptInput {
     if (!Array.isArray(input)) {
       throw typeMismatchError("string[]", typeof input, context);
     }

@@ -1,6 +1,6 @@
 import { compileCurrent, compileSelection } from "./compile";
 import {
-  focusCurrentDraft,
+  focusCurrentProject,
   previousScene,
   previousSceneAtIndent,
   nextScene,
@@ -13,16 +13,12 @@ import {
 } from "./navigation";
 import { indentScene, unindentScene } from "./indentation";
 import type LongformPlugin from "src/main";
-import {
-  insertMultiSceneTemplate,
-  insertSingleSceneTemplate,
-} from "./templates";
-import { startNewSession } from "./word-counts";
+import { insertMultiSceneTemplate, insertSingleSceneTemplate } from "./templates";
 
 const commandBuilders = [
   compileCurrent,
   compileSelection,
-  focusCurrentDraft,
+  focusCurrentProject,
   previousScene,
   previousSceneAtIndent,
   nextScene,
@@ -36,7 +32,6 @@ const commandBuilders = [
   focusNewSceneField,
   insertMultiSceneTemplate,
   insertSingleSceneTemplate,
-  startNewSession,
 ];
 
 export function addCommands(plugin: LongformPlugin) {

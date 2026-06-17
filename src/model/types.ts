@@ -1,16 +1,44 @@
 export const LONGFORM_CURRENT_PLUGIN_DATA_VERSION = 3;
-export const LONGFORM_CURRENT_INDEX_VERSION = 1;
+export const LONGFORM_CURRENT_INDEX_VERSION = 2;
 
 export type IndentedScene = {
   title: string;
   indent: number;
 };
 
-export type MultipleSceneDraft = {
+export type EbookMetadata = {
+  author?: string;
+  language?: string;
+  identifier?: string;
+  description?: string;
+  cover?: string;
+  publisher?: string;
+  pubdate?: string;
+  rights?: string;
+  subjects?: string[];
+  series?: string;
+  seriesIndex?: number;
+};
+
+/** Ebook metadata fields that are scalars (string-valued). Excludes `subjects` (array) and `seriesIndex` (number). */
+export const EBOOK_STRING_KEYS = [
+  "author",
+  "language",
+  "identifier",
+  "description",
+  "cover",
+  "publisher",
+  "pubdate",
+  "rights",
+  "series",
+] as const satisfies readonly (keyof EbookMetadata)[];
+
+export type EbookStringKey = (typeof EBOOK_STRING_KEYS)[number];
+
+export type MultipleSceneProject = {
   format: "scenes";
   title: string;
   titleInFrontmatter: boolean;
-  draftTitle: string | null;
   vaultPath: string;
   workflow: string | null;
   sceneFolder: string;
@@ -18,18 +46,19 @@ export type MultipleSceneDraft = {
   ignoredFiles: string[] | null;
   unknownFiles: string[];
   sceneTemplate: string | null;
+  ebook: EbookMetadata;
 };
 
-export type SingleSceneDraft = {
+export type SingleSceneProject = {
   format: "single";
   title: string;
   titleInFrontmatter: boolean;
-  draftTitle: string | null;
   vaultPath: string;
   workflow: string | null;
+  ebook: EbookMetadata;
 };
 
-export type Draft = MultipleSceneDraft | SingleSceneDraft;
+export type Project = MultipleSceneProject | SingleSceneProject;
 
 export type SerializedStep = {
   id: string;
@@ -43,92 +72,28 @@ export type SerializedWorkflow = {
 };
 
 /**
- * Draft vault paths to either a map of scene names to word counts or,
- * in the case of single-scene drafts, the word count.
+ * Maps project vault paths to either a map of scene names to word counts or,
+ * in the case of single-scene projects, the word count.
  */
-export type DraftWordCounts = Record<string, Record<string, number> | number>;
-
-export type WordCountSession = {
-  /**
-   * Start date for this session.
-   */
-  start: Date;
-
-  /**
-   * Total number of words written in this session.
-   */
-  total: number;
-
-  /**
-   * Stats in this session per draft.
-   */
-  drafts: Record<
-    string,
-    {
-      /**
-       * Total words written in this draft in this session.
-       */
-      total: number;
-
-      /**
-       * Stats in this session per scene.
-       */
-      scenes: Record<string, number>;
-    }
-  >;
-};
+export type ProjectWordCounts = Record<string, Record<string, number> | number>;
 
 export interface LongformPluginSettings {
   version: number;
-  selectedDraftVaultPath: string | null;
+  selectedProjectPath: string | null;
   workflows: Record<string, SerializedWorkflow> | null;
-  userScriptFolder: string | null;
-  sessionStorage: "data" | "plugin-folder" | "file";
-  sessions: WordCountSession[];
-  showWordCountInStatusBar: boolean;
-  startNewSessionEachDay: boolean;
-  sessionGoal: number;
-  applyGoalTo: "all" | "project" | "note";
-  notifyOnGoal: boolean;
-  countDeletionsForGoal: boolean;
-  keepSessionCount: number;
-  sessionFile: string;
   numberScenes: boolean;
   sceneTemplate: string | null;
   waitForSync: boolean;
   fallbackWaitEnabled: boolean;
   fallbackWaitTime: number;
-  writeProperty: boolean;
-  // DEPRECATED. To be removed in future, needed now for migrations.
-  projects: {
-    [path: string]: {
-      indexFile: string;
-      draftsPath: string;
-    };
-  };
 }
-
-export const DEFAULT_SESSION_FILE = "longform-sessions.json";
 
 export const DEFAULT_SETTINGS: LongformPluginSettings = {
   version: LONGFORM_CURRENT_PLUGIN_DATA_VERSION,
-  selectedDraftVaultPath: null,
+  selectedProjectPath: null,
   workflows: null,
-  userScriptFolder: null,
-  sessionStorage: "data",
-  sessions: [],
-  showWordCountInStatusBar: true,
-  startNewSessionEachDay: true,
-  sessionGoal: 500,
-  applyGoalTo: "all",
-  notifyOnGoal: true,
-  countDeletionsForGoal: false,
-  keepSessionCount: 30,
-  sessionFile: DEFAULT_SESSION_FILE,
   numberScenes: false,
   sceneTemplate: null,
-  writeProperty: false,
-  projects: {},
   waitForSync: false,
   fallbackWaitEnabled: true,
   fallbackWaitTime: 5,
@@ -136,43 +101,18 @@ export const DEFAULT_SETTINGS: LongformPluginSettings = {
 
 export const TRACKED_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
   "version",
-  "projects",
-  "selectedDraftVaultPath",
-  "userScriptFolder",
-  "sessionStorage",
-  "sessions",
-  "showWordCountInStatusBar",
-  "startNewSessionEachDay",
-  "sessionGoal",
-  "applyGoalTo",
-  "notifyOnGoal",
-  "countDeletionsForGoal",
-  "keepSessionCount",
-  "sessionFile",
+  "selectedProjectPath",
   "numberScenes",
   "sceneTemplate",
   "waitForSync",
   "fallbackWaitEnabled",
   "fallbackWaitTime",
-  "writeProperty",
 ];
 
-export const PASSTHROUGH_SAVE_SETTINGS_PATHS: (keyof LongformPluginSettings)[] =
-  [
-    "sessionStorage",
-    "userScriptFolder",
-    "showWordCountInStatusBar",
-    "startNewSessionEachDay",
-    "sessionGoal",
-    "applyGoalTo",
-    "notifyOnGoal",
-    "countDeletionsForGoal",
-    "keepSessionCount",
-    "sessionFile",
-    "numberScenes",
-    "sceneTemplate",
-    "waitForSync",
-    "fallbackWaitEnabled",
-    "fallbackWaitTime",
-    "writeProperty",
-  ];
+export const PASSTHROUGH_SAVE_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
+  "numberScenes",
+  "sceneTemplate",
+  "waitForSync",
+  "fallbackWaitEnabled",
+  "fallbackWaitTime",
+];

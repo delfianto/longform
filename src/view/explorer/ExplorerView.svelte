@@ -1,7 +1,7 @@
 <script lang="ts">
   import CompileView from "../compile/CompileView.svelte";
 
-  import { selectedDraft } from "src/model/stores";
+  import { selectedProject } from "src/model/stores";
   import { selectedTab } from "../stores";
   import { waitingForSync } from "src/model/stores";
 
@@ -9,44 +9,20 @@
   import ProjectPicker from "./ProjectPicker.svelte";
   import SceneList from "./SceneList.svelte";
   import ProjectDetails from "./ProjectDetails.svelte";
-  import { needsMigration } from "src/model/migration";
-  import { getContext } from "svelte";
   import Tab from "./Tab.svelte";
 
-  const _migrate: () => void = getContext("migrate");
-  function doMigration() {
-    _migrate();
-  }
-
-  $: {
+  $effect(() => {
     if (
-      $selectedDraft &&
-      $selectedDraft.format === "single" &&
+      $selectedProject &&
+      $selectedProject.format === "single" &&
       $selectedTab === "Scenes"
     ) {
       $selectedTab = "Project";
     }
-  }
+  });
 </script>
 
-{#if $needsMigration}
-  <div class="longform-explorer">
-    <p>
-      Longform has been upgraded and requires a migration to a new format.
-      Deprecated index files will be deleted, and some scene files may move.
-      It’s recommended to back up your vault before migrating.
-    </p>
-    <p>
-      You can view the docs and an explanation of what this migration does <a
-        href="https://github.com/kevboh/longform/blob/main/docs/MIGRATING_FROM_VERSION_1_TO_2.md"
-        >here</a
-      >.
-    </p>
-    <button class="longform-migrate-button" type="button" on:click={doMigration}
-      >Migrate</button
-    >
-  </div>
-{:else if $waitingForSync}
+{#if $waitingForSync}
   <div class="longform-sync-wait">
     <div class="longform-spinner"></div>
     <div class="longform-sync-message">
@@ -56,7 +32,7 @@
 {:else}
   <div class="longform-explorer">
     <ProjectPicker />
-    {#if $selectedDraft && $selectedDraft.format === "scenes"}
+    {#if $selectedProject && $selectedProject.format === "scenes"}
       <div>
         <div class="tabs">
           <div class="tab-list">
@@ -107,15 +83,6 @@
     font-size: var(--longform-explorer-font-size);
   }
 
-  .longform-migrate-button {
-    background-color: var(--interactive-accent);
-    color: var(--text-on-accent);
-  }
-
-  .longform-migrate-button:hover {
-    background-color: var(--interactive-accent-hover);
-  }
-
   .tab-list {
     margin: 0;
     font-size: 0; /* To remove spacing between tabs */
@@ -125,7 +92,7 @@
     background: var(--background-primary);
     padding: var(--size-4-1) var(--size-4-2);
   }
-  
+
   .tab-panel-container.disconnected {
     background: none;
     padding: 0;

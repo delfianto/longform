@@ -17,7 +17,7 @@ export default class ConfirmActionModal extends Modal {
     yesText: string,
     yesAction: () => void,
     noText = "Cancel",
-    noAction: () => void = () => this.close()
+    noAction: () => void = () => this.close(),
   ) {
     super(app);
     this.title = title;
@@ -33,9 +33,7 @@ export default class ConfirmActionModal extends Modal {
 
     contentEl.createEl("h1", { text: this.title });
     contentEl.createEl("p", { text: this.explanation });
-    new ButtonComponent(contentEl)
-      .setButtonText(this.noText)
-      .onClick(this.noAction);
+    new ButtonComponent(contentEl).setButtonText(this.noText).onClick(this.noAction);
     new ButtonComponent(contentEl)
       .setButtonText(this.yesText)
       .setWarning()

@@ -1,15 +1,16 @@
 ---
-longform:
-  format: scenes
-  title: A Novel; or, What Projects Look Like Now
-  workflow: Default Workflow
-  sceneFolder: /
-  scenes:
-    - first scene
-    - fourth
-  ignoredFiles:
-    - "*-scratch"
-    - manuscript
+longform: scenes
+title: "A Novel; or, What Projects Look Like Now"
+workflow: Default Workflow
+sceneFolder: /
+scenes:
+  - first scene
+  - fourth
+ignoredFiles:
+  - "*-scratch"
+  - manuscript
+author: Jane Doe
+language: en
 othermetadata: sure
 ---
 

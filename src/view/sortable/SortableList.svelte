@@ -1,4 +1,4 @@
-<script context="module" lang="ts">
+<script module lang="ts">
   import { toInteger } from "lodash";
 
   function IndentPlugin() {
@@ -7,7 +7,7 @@
     let initialX = 0;
     let dragID: string = null;
 
-    function Indent() {
+    function Indent(this: { defaults: { indentWidth: number; onIndentChange: () => void } }) {
       this.defaults = {
         indentWidth: 32,
         onIndentChange: () => {},
@@ -51,45 +51,41 @@
   Sortable.mount(new IndentPlugin());
 </script>
 
-<script lang="ts">
+<script lang="ts" generics="T extends { id: string; indent?: number; [key: string]: unknown }">
+  import type { Snippet } from "svelte";
   import type SortableType from "sortablejs";
   import Sortable from "sortablejs/modular/sortable.core.esm.js";
-  import { createEventDispatcher, onMount } from "svelte";
+  import { onMount } from "svelte";
 
-  // Setup for generic item data structures.
-  type Item = $$Generic;
-  type T = $$Generic<{
-    id: string;
-    indent?: number;
-    [otherKey: string]: unknown;
-  }>;
-  interface $$Slots {
-    default: {
-      item: T;
-    };
-  }
-
-  // Props
-  export let items: T[] = [];
-  export let sortableOptions: SortableType.Options = {};
-  export let trackIndents = false;
-
-  const dispatcher = createEventDispatcher<{
-    orderChanged: T[];
-    indentChanged: {
+  interface Props {
+    items?: T[];
+    sortableOptions?: SortableType.Options;
+    trackIndents?: boolean;
+    children: Snippet<[T]>;
+    onorderChanged?: (items: T[]) => void;
+    onindentChanged?: (detail: {
       itemID: string;
       itemIndex: number;
       newIndent: number;
       indentWidth: number;
-    };
-  }>();
+    }) => void;
+    class?: string;
+  }
 
-  // Element handles and mount sortable
-  let listElement: HTMLElement;
+  let {
+    items = $bindable([]),
+    sortableOptions = {},
+    trackIndents = false,
+    children,
+    onorderChanged,
+    onindentChanged,
+    class: className,
+  }: Props = $props();
+
+  let listElement: HTMLElement = $state(null);
+
   onMount(() => {
-    // Prepare sortable bits. Set up a dispatcher for sort events,
-    // and proxy the store.set function to fire it.
-    sortableOptions = Object.assign(
+    const opts: SortableType.Options = Object.assign(
       {
         indent: trackIndents,
         onIndentChange: (
@@ -99,12 +95,7 @@
           indentWidth: number
         ) => {
           if (trackIndents) {
-            dispatcher("indentChanged", {
-              itemID,
-              itemIndex,
-              newIndent,
-              indentWidth,
-            });
+            onindentChanged?.({ itemID, itemIndex, newIndent, indentWidth });
           }
         },
         delayOnTouchOnly: true,
@@ -112,27 +103,28 @@
       },
       sortableOptions
     );
-    sortableOptions.store = sortableOptions.store || {
+
+    opts.store = opts.store || {
       set: () => {},
       get: (sortable: SortableType) => sortable.toArray(),
     };
-    const oldStoreSet = sortableOptions.store.set;
-    sortableOptions.store.set = (sortable: SortableType) => {
+    const oldStoreSet = opts.store.set;
+    opts.store.set = (sortable: SortableType) => {
       const sortedItems = sortable
         .toArray()
         .map((k) => items.find((i) => i.id === k));
-      dispatcher("orderChanged", sortedItems);
+      onorderChanged?.(sortedItems);
       oldStoreSet(sortable);
     };
 
-    Sortable.create(listElement, sortableOptions);
+    Sortable.create(listElement, opts);
   });
 </script>
 
-<ul bind:this={listElement} class={$$props.class}>
+<ul bind:this={listElement} class={className}>
   {#each items as item (item.id)}
     <li data-id={item.id} data-indent={item.indent ?? 0}>
-      <slot {item} />
+      {@render children(item)}
     </li>
   {/each}
 </ul>

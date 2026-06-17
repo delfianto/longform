@@ -1,11 +1,7 @@
 import { type App, normalizePath } from "obsidian";
-import { numberScenes } from "src/model/draft-utils";
-import {
-  projectFolderPath,
-  sceneFolderPath,
-  scenePathForFolder,
-} from "src/model/scene-navigation";
-import type { Draft, SerializedWorkflow } from "src/model/types";
+import { numberScenes } from "src/model/project-utils";
+import { projectFolderPath, sceneFolderPath, scenePathForFolder } from "src/model/scene-navigation";
+import type { Project, SerializedWorkflow } from "src/model/types";
 import {
   CompileStepKind,
   type CompileContext,
@@ -35,10 +31,7 @@ export interface CompileStatusSuccess {
   kind: "CompileStatusSuccess";
 }
 
-export type CompileStatus =
-  | CompileStatusError
-  | CompileStatusStep
-  | CompileStatusSuccess;
+export type CompileStatus = CompileStatusError | CompileStatusStep | CompileStatusSuccess;
 
 function formatOptionValues(values: { [key: string]: unknown }): {
   [key: string]: unknown;
@@ -70,7 +63,7 @@ export type WorkflowValidationResult = {
 
 export function calculateWorkflow(
   workflow: Workflow,
-  isMultiScene: boolean
+  isMultiScene: boolean,
 ): [WorkflowValidationResult, CompileStepKind[]] {
   if (!workflow) {
     return;
@@ -78,11 +71,7 @@ export function calculateWorkflow(
 
   let currentKind = null;
   const calculatedKinds: CompileStepKind[] = [];
-  for (
-    let stepPosition = 0;
-    stepPosition < workflow.steps.length;
-    stepPosition++
-  ) {
+  for (let stepPosition = 0; stepPosition < workflow.steps.length; stepPosition++) {
     const step = workflow.steps[stepPosition];
     const kinds = step.description.availableKinds;
 
@@ -90,10 +79,7 @@ export function calculateWorkflow(
     const hasJoinKind = kinds.includes(CompileStepKind.Join);
     const hasManuscriptKind = kinds.includes(CompileStepKind.Manuscript);
 
-    if (
-      step.description.canonicalID ===
-      PLACEHOLDER_MISSING_STEP.description.canonicalID
-    ) {
+    if (step.description.canonicalID === PLACEHOLDER_MISSING_STEP.description.canonicalID) {
       return [
         {
           error: WorkflowError.UnloadedStep,
@@ -182,33 +168,33 @@ export function calculateWorkflow(
 
 export async function compile(
   app: App,
-  draft: Draft,
+  project: Project,
   workflow: Workflow,
   kinds: CompileStepKind[],
-  statusCallback: (status: CompileStatus) => void
+  statusCallback: (status: CompileStatus) => void,
 ): Promise<void> {
   let currentInput: any;
 
-  if (draft.format === "single") {
-    const path = draft.vaultPath;
+  if (project.format === "single") {
+    const path = project.vaultPath;
     const contents = await app.vault.adapter.read(path);
     const metadata = app.metadataCache.getCache(path);
 
     currentInput = [
       {
         path,
-        name: draft.title,
+        name: project.title,
         contents,
         metadata,
       },
     ];
   } else {
-    const folderPath = sceneFolderPath(draft, app.vault);
+    const folderPath = sceneFolderPath(project, app.vault);
 
     currentInput = [];
 
     // Build initial inputs
-    for (const scene of numberScenes(draft.scenes)) {
+    for (const scene of numberScenes(project.scenes)) {
       const path = scenePathForFolder(scene.title, folderPath);
       const contents = await app.vault.adapter.read(path);
       const metadata = app.metadataCache.getCache(path);
@@ -239,18 +225,15 @@ export async function compile(
     const context: CompileContext = {
       kind,
       optionValues: formatOptionValues(step.optionValues),
-      projectPath: projectFolderPath(draft, app.vault),
-      draft,
+      projectPath: projectFolderPath(project, app.vault),
+      project,
       app,
       utilities: {
         normalizePath,
       },
     };
 
-    console.log(
-      `[Longform] Running compile step ${step.description.name} with context:`,
-      context
-    );
+    console.log(`[Longform] Running compile step ${step.description.name} with context:`, context);
 
     statusCallback({
       kind: "CompileStatusStep",
@@ -262,12 +245,12 @@ export async function compile(
     // TODO: how to enforce typings here?
     try {
       // handle the case where we're going scene -> manuscript -> scene
-      if (draft.format === "single" && kind === CompileStepKind.Manuscript) {
+      if (project.format === "single" && kind === CompileStepKind.Manuscript) {
         const result = await step.compile(
           {
             contents: currentInput[0].contents,
           },
-          context
+          context,
         );
         currentInput[0] = result;
       } else {
@@ -285,7 +268,7 @@ export async function compile(
 
   console.log(
     `[Longform] Compile workflow "${workflow.name}" finished with final result:`,
-    currentInput
+    currentInput,
   );
 
   statusCallback({
@@ -296,8 +279,7 @@ export async function compile(
 export const DEFAULT_WORKFLOWS: Record<string, SerializedWorkflow> = {
   "Default Workflow": {
     name: "Default Workflow",
-    description:
-      "A starter workflow. Feel free to edit, rename, or delete it and create your own.",
+    description: "A starter workflow. Feel free to edit, rename, or delete it and create your own.",
     steps: [
       {
         id: "strip-frontmatter",

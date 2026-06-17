@@ -1,26 +1,24 @@
 <script lang="ts">
   import {
-    selectedDraft,
+    selectedProject,
     workflows,
     currentWorkflow,
     userScriptSteps,
   } from "src/model/stores";
   import { getContext } from "svelte";
 
-  import { BUILTIN_STEPS } from "../../../compile/steps";
+  import { BUILTIN_STEPS } from "../../compile/steps";
   import type {
     CompileStep,
     Workflow,
-  } from "../../../compile/steps/abstract-compile-step";
+  } from "../../compile/steps/abstract-compile-step";
   import {
     explainStepKind,
     formatStepKind,
-  } from "../../../compile/steps/abstract-compile-step";
+  } from "../../compile/steps/abstract-compile-step";
 
   const close: () => void = getContext("close");
   function onStepClick(step: CompileStep) {
-    // Inject the current epoch into the step ID to allow
-    // multiple same-typed steps.
     const newWorkflow: Workflow = {
       ...$currentWorkflow,
       steps: [
@@ -28,7 +26,7 @@
         { ...step, id: `${step.id}-${Date.now()}` },
       ],
     } as Workflow;
-    const currentWorkflowName = $selectedDraft.workflow;
+    const currentWorkflowName = $selectedProject.workflow;
     $workflows[currentWorkflowName] = newWorkflow;
     close();
   }
@@ -43,7 +41,18 @@
   <h2>Built-in Steps</h2>
   <div class="longform-steps-grid">
     {#each BUILTIN_STEPS as step}
-      <div class="longform-compile-step" on:click={() => onStepClick(step)}>
+      <div
+        class="longform-compile-step"
+        role="button"
+        tabindex="0"
+        onclick={() => onStepClick(step)}
+        onkeydown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onStepClick(step);
+          }
+        }}
+      >
         <h3>{step.description.name}</h3>
         <div class="longform-step-pill-container">
           {#each step.description.availableKinds as kind}
@@ -60,7 +69,18 @@
     <h2>User Script Steps</h2>
     <div class="longform-steps-grid">
       {#each $userScriptSteps as step}
-        <div class="longform-compile-step" on:click={() => onStepClick(step)}>
+        <div
+          class="longform-compile-step"
+          role="button"
+          tabindex="0"
+          onclick={() => onStepClick(step)}
+          onkeydown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onStepClick(step);
+            }
+          }}
+        >
           <h3>{step.description.name}</h3>
           <div class="longform-step-pill-container">
             {#each step.description.availableKinds as kind}

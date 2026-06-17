@@ -9,7 +9,7 @@ export class FolderSuggest extends TextInputSuggest<TFolder> {
   constructor(
     app: App,
     inputEl: HTMLInputElement | HTMLTextAreaElement,
-    relativeRoot: string = null
+    relativeRoot: string | null = null,
   ) {
     super(app, inputEl);
 

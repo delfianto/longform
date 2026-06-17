@@ -1,32 +1,27 @@
 import type { Editor, MarkdownFileInfo, MarkdownView } from "obsidian";
 
-import { draftForPath } from "src/model/scene-navigation";
-import { drafts, selectedDraftVaultPath } from "src/model/stores";
+import { projectForPath } from "src/model/scene-navigation";
+import { projects, selectedProjectPath } from "src/model/stores";
 import { get } from "svelte/store";
 import type { CommandBuilder } from "./types";
-import { insertDraftIntoFrontmatter } from "src/model/draft-utils";
-import { fileNameFromPath } from "src/model/note-utils";
-import type {
-  Draft,
-  MultipleSceneDraft,
-  SingleSceneDraft,
-} from "src/model/types";
+import { insertProjectFrontmatter } from "src/model/project-utils";
+import { fileNameFromPath } from "src/lib/path";
+import type { Project, MultipleSceneProject, SingleSceneProject } from "src/model/types";
 
 const callbackForFormat = (
   format: "scenes" | "single",
   checking: boolean,
   _editor: Editor,
-  view: MarkdownView | MarkdownFileInfo
+  view: MarkdownView | MarkdownFileInfo,
 ): boolean | void => {
   const file = view.file;
 
-  // check if this is already a draft or scene, if so, do nothing
-  const draft = draftForPath(file.path, get(drafts));
-  if (checking && draft) {
+  const project = projectForPath(file.path, get(projects));
+  if (checking && project) {
     return false;
-  } else if (draft) {
+  } else if (project) {
     console.log(
-      `[Longform] Attempted to insert frontmatter into existing draft at ${file.path}; ignoring.`
+      `[Longform] Attempted to insert frontmatter into existing project at ${file.path}; ignoring.`,
     );
   } else if (checking) {
     return true;
@@ -34,13 +29,12 @@ const callbackForFormat = (
 
   const title = fileNameFromPath(file.path);
 
-  const newDraft: Draft = (() => {
+  const newProject: Project = (() => {
     if (format === "scenes") {
-      const multi: MultipleSceneDraft = {
+      const multi: MultipleSceneProject = {
         format: "scenes",
         title,
         titleInFrontmatter: false,
-        draftTitle: null,
         vaultPath: file.path,
         workflow: null,
         sceneFolder: "/",
@@ -48,23 +42,24 @@ const callbackForFormat = (
         ignoredFiles: [],
         unknownFiles: [],
         sceneTemplate: null,
+        ebook: {},
       };
       return multi;
     } else {
-      const single: SingleSceneDraft = {
+      const single: SingleSceneProject = {
         format: "single",
         title,
         titleInFrontmatter: false,
-        draftTitle: null,
         vaultPath: file.path,
         workflow: null,
+        ebook: {},
       };
       return single;
     }
   })();
 
-  insertDraftIntoFrontmatter(view.app, file.path, newDraft).then(() => {
-    selectedDraftVaultPath.set(file.path);
+  insertProjectFrontmatter(view.app, file.path, newProject).then(() => {
+    selectedProjectPath.set(file.path);
   });
 };
 
@@ -72,8 +67,7 @@ export const insertMultiSceneTemplate: CommandBuilder = (_plugin) => ({
   id: "longform-insert-multi-scene",
   name: "Insert multi-scene frontmatter",
   editorCheckCallback(checking, editor, view) {
-    const result = callbackForFormat("scenes", checking, editor, view);
-    return result;
+    return callbackForFormat("scenes", checking, editor, view);
   },
 });
 

@@ -1,19 +1,18 @@
 <script lang="ts">
-  /* Note: VSCode doesn't love the use of generics + let:item
-     in the html section here. I'm not sure what to do about it;
-     it's valid svelte and doesn't typeerror on compile.
+  /* Note: VSCode doesn't love the use of generics + snippets here.
+     It's valid svelte and doesn't typeerror on compile.
   */
   import type Sortable from "sortablejs";
   import { getContext, onDestroy } from "svelte";
   import { Keymap, Notice, Platform, type PaneType, TFile } from "obsidian";
 
   import { activeFile } from "../stores";
-  import { drafts, pluginSettings, selectedDraft } from "src/model/stores";
+  import { projects, pluginSettings, selectedProject } from "src/model/stores";
   import SortableList from "../sortable/SortableList.svelte";
-  import type { IndentedScene, MultipleSceneDraft } from "src/model/types";
+  import type { IndentedScene, MultipleSceneProject } from "src/model/types";
   import Disclosure from "../components/Disclosure.svelte";
-  import { formatSceneNumber, numberScenes } from "src/model/draft-utils";
-  import type { UndoManager } from "src/view/undo/undo-manager";
+  import { formatSceneNumber, numberScenes } from "src/model/project-utils";
+  import type { UndoManager } from "src/view/undo-manager";
   import { cloneDeep } from "lodash";
   import { scenePath } from "src/model/scene-navigation";
   import { selectElementContents, useApp } from "../utils";
@@ -21,21 +20,22 @@
 
   const app = useApp();
 
-  let currentDraftIndex: number = -1;
-  $: if ($selectedDraft) {
-    currentDraftIndex = $drafts.findIndex(
-      (d) => d.vaultPath === $selectedDraft.vaultPath
-    );
-  }
+  let currentProjectIndex = $state(-1);
+  $effect(() => {
+    if ($selectedProject) {
+      currentProjectIndex = $projects.findIndex(
+        (d) => d.vaultPath === $selectedProject.vaultPath
+      );
+    }
+  });
 
-  // Function to make paths from scene names
-  const makeScenePath: (draft: MultipleSceneDraft, scene: string) => string =
+  const makeScenePath: (project: MultipleSceneProject, scene: string) => string =
     getContext("makeScenePath");
 
-  // Map current list of scenes to data for our sortable list
   type SceneItem = {
     id: string;
     name: string;
+    displayName: string;
     path: string;
     indent: number;
     collapsible: boolean;
@@ -43,23 +43,26 @@
     numbering: number[];
     status: string | undefined;
   };
-  let items: SceneItem[];
-  let collapsedItems: string[] = [];
-  $: {
-    items =
-      $selectedDraft && $selectedDraft.format === "scenes"
-        ? itemsFromScenes($selectedDraft.scenes, collapsedItems)
-        : [];
-  }
 
-  // INDENTATION & COLLAPSING
-  let ghostIndent = 0;
-  let draggingIndent = 0;
-  let draggingID: string = null;
+  let collapsedItems: string[] = $state([]);
+  // Bumped on every metadata-changed event so $derived items re-runs and
+  // picks up edits to a scene's frontmatter `title`.
+  let metadataTick = $state(0);
+
+  let items: SceneItem[] = $derived(
+    $selectedProject && $selectedProject.format === "scenes"
+      ? itemsFromScenes($selectedProject.scenes, collapsedItems, metadataTick)
+      : []
+  );
+
+  let ghostIndent = $state(0);
+  let draggingIndent = $state(0);
+  let draggingID: string = $state(null);
 
   function itemsFromScenes(
     indentedScenes: IndentedScene[],
-    _collapsedItems: string[]
+    _collapsedItems: string[],
+    _tick: number
   ): SceneItem[] {
     const scenes = numberScenes(indentedScenes);
     const itemsToReturn: SceneItem[] = [];
@@ -77,22 +80,26 @@
       }
 
       const nextScene = index < scenes.length - 1 ? scenes[index + 1] : false;
-      const path = makeScenePath($selectedDraft as MultipleSceneDraft, title);
+      const path = makeScenePath($selectedProject as MultipleSceneProject, title);
       const file = app.vault.getAbstractFileByPath(path);
       let status = undefined;
+      let displayName = title;
       if (file && file instanceof TFile) {
         const metadata = app.metadataCache.getFileCache(file);
-        if (
-          metadata &&
-          metadata.frontmatter &&
-          metadata.frontmatter["status"]
-        ) {
-          status = `${metadata.frontmatter["status"]}`;
+        if (metadata && metadata.frontmatter) {
+          if (metadata.frontmatter["status"]) {
+            status = `${metadata.frontmatter["status"]}`;
+          }
+          const fmTitle = metadata.frontmatter["title"];
+          if (typeof fmTitle === "string" && fmTitle.trim().length > 0) {
+            displayName = fmTitle.trim();
+          }
         }
       }
       const item = {
         id: title,
         name: title,
+        displayName,
         indent,
         path,
         collapsible: nextScene && nextScene.indent > indent,
@@ -106,8 +113,17 @@
     return itemsToReturn;
   }
 
-  // Track sort state for styling, set sorting options
-  let isSorting = false;
+  // Re-render scene labels when frontmatter changes (e.g. user edits a scene's
+  // `title` property). Filtered to .md files to avoid waking up on unrelated
+  // metadata events.
+  const metadataEventRef = app.metadataCache.on("changed", (file: TFile) => {
+    if (file && file.extension === "md") {
+      metadataTick = metadataTick + 1;
+    }
+  });
+  onDestroy(() => app.metadataCache.offref(metadataEventRef));
+
+  let isSorting = $state(false);
   const sortableOptions: Sortable.Options = {
     animation: 150,
     ghostClass: "scene-drag-ghost",
@@ -122,17 +138,17 @@
     },
   };
 
-  function itemOrderChanged(event: CustomEvent<SceneItem[]>) {
-    if (currentDraftIndex >= 0 && $selectedDraft.format === "scenes") {
-      const scenes: IndentedScene[] = event.detail.map((d) => ({
+  function itemOrderChanged(newItems: SceneItem[]) {
+    if (currentProjectIndex >= 0 && $selectedProject.format === "scenes") {
+      const scenes: IndentedScene[] = newItems.map((d) => ({
         title: d.name,
         indent: d.name === draggingID ? draggingIndent : d.indent,
       }));
-      ($drafts[currentDraftIndex] as MultipleSceneDraft).scenes = scenes;
+      ($projects[currentProjectIndex] as MultipleSceneProject).scenes = scenes;
 
       sceneHistory = [
         {
-          draftVaultPath: $drafts[currentDraftIndex].vaultPath,
+          projectVaultPath: $projects[currentProjectIndex].vaultPath,
           scenes: cloneDeep(scenes),
         },
         ...sceneHistory,
@@ -145,17 +161,15 @@
     }
   }
 
-  function itemIndentChanged(
-    event: CustomEvent<{
-      itemID: string;
-      itemIndex: number;
-      newIndent: number;
-      indentWidth: number;
-    }>
-  ) {
-    draggingID = event.detail.itemID;
-    draggingIndent = event.detail.newIndent || 0;
-    ghostIndent = draggingIndent * event.detail.indentWidth;
+  function itemIndentChanged(detail: {
+    itemID: string;
+    itemIndex: number;
+    newIndent: number;
+    indentWidth: number;
+  }) {
+    draggingID = detail.itemID;
+    draggingIndent = detail.newIndent || 0;
+    ghostIndent = draggingIndent * detail.indentWidth;
   }
 
   function collapseItem(itemID: string) {
@@ -166,31 +180,24 @@
     }
   }
 
-  // Grab the click context function and call it when a valid scene is clicked.
   const onSceneClick: (path: string, paneType: boolean | PaneType) => void =
     getContext("onSceneClick");
-  function onItemClick(item: any, event: MouseEvent) {
-    const sceneItem = item as SceneItem;
-    if (sceneItem.path) {
-      // If on mobile, treat a tap on the active file as a collapse action
-      // this is because the disclosure target is way too small to tap.
+  function onItemClick(item: SceneItem, event: MouseEvent) {
+    if (item.path) {
       if (
         Platform.isMobile &&
-        sceneItem.collapsible &&
-        sceneItem.path === $activeFile.path
+        item.collapsible &&
+        item.path === $activeFile.path
       ) {
         collapseItem(item.id);
       } else {
-        onSceneClick(sceneItem.path, Keymap.isModEvent(event));
+        onSceneClick(item.path, Keymap.isModEvent(event));
       }
     }
   }
 
-  // Context click and inline editing.
-  // editingPath is the item.path of the currently-context-clicked scene, or null if none clicked.
-  let editingPath: string | null = null;
-  // originalName is the original scene name of the scene whose path is editingPath.
-  let originalName: string | null = null;
+  let editingPath: string | null = $state(null);
+  let originalName: string | null = $state(null);
 
   const onContextClick: (
     path: string,
@@ -199,22 +206,20 @@
     onRename: () => void
   ) => void = getContext("onContextClick");
   function onContext(event: MouseEvent) {
-    // Don't show context menu on mobile, as it blocks scene drag-and-drop.
     if (Platform.isMobileApp) {
       return;
     }
     const { x, y } = event;
     let element = document.elementFromPoint(x, y);
-    // If the scene name has been right-clicked grab the parent instead.
     if (element.id.startsWith("longform-scene-")) {
       element = element.parentElement;
     }
-    const scenePath =
+    const sPath =
       element && element instanceof HTMLElement && element.dataset.scenePath;
-    if (!scenePath) {
+    if (!sPath) {
       return;
     }
-    onContextClick(scenePath, x, y, () => {
+    onContextClick(sPath, x, y, () => {
       if (element && element instanceof HTMLElement) {
         const path = element.dataset.scenePath;
         editingPath = path;
@@ -234,12 +239,11 @@
     if (
       editingPath &&
       event.target instanceof HTMLElement &&
-      $selectedDraft.format === "scenes"
+      $selectedProject.format === "scenes"
     ) {
       const newName = event.target.innerText;
       if (event.key === "Enter") {
-        // Rename file
-        const newPath = scenePath(newName, $selectedDraft, app.vault);
+        const newPath = scenePath(newName, $selectedProject, app.vault);
         const file = app.vault.getAbstractFileByPath(editingPath);
         app.fileManager.renameFile(file, newPath);
         editingPath = null;
@@ -262,7 +266,7 @@
   }
 
   function doWithUnknown(fileName: string, action: "add" | "ignore") {
-    if (!$selectedDraft) return;
+    if (!$selectedProject) return;
     if (action === "add") {
       addScene(fileName);
     } else {
@@ -271,7 +275,7 @@
   }
 
   function doWithAll(action: "add" | "ignore") {
-    if (!$selectedDraft) return;
+    if (!$selectedProject) return;
     if (action === "add") {
       addAll();
     } else {
@@ -279,58 +283,54 @@
     }
   }
 
-  function numberLabel(item: any): string {
-    return formatSceneNumber(item.numbering as number[]);
+  function numberLabel(item: SceneItem): string {
+    return formatSceneNumber(item.numbering);
   }
 
   // Undo/Redo
   const undoManager = getContext("undoManager") as UndoManager;
-  // Stack of scenes plus their associated draft.
-  let sceneHistory: { draftVaultPath: string; scenes: IndentedScene[] }[] = [];
-  // Pointer into that stack.
-  let undoIndex = 0;
+  let sceneHistory: { projectVaultPath: string; scenes: IndentedScene[] }[] = $state([]);
+  let undoIndex = $state(0);
+
   undoManager.on((type, _evt, _ctx) => {
     const oldIndex = undoIndex;
     if (type === "undo") {
-      // Move pointer up 1 to max of final index
       undoIndex = Math.max(Math.min(undoIndex + 1, sceneHistory.length - 1), 0);
     } else {
-      // Move pointer down 1 to min of 0
       undoIndex = Math.max(undoIndex - 1, 0);
     }
     const newValue = sceneHistory[undoIndex];
-    // Some final sanity checks
     if (
       oldIndex !== undoIndex &&
       newValue &&
-      currentDraftIndex >= 0 &&
-      newValue.draftVaultPath === $drafts[currentDraftIndex].vaultPath &&
-      $drafts[currentDraftIndex].format === "scenes"
+      currentProjectIndex >= 0 &&
+      newValue.projectVaultPath === $projects[currentProjectIndex].vaultPath &&
+      $projects[currentProjectIndex].format === "scenes"
     ) {
       const newScenes = sceneHistory[undoIndex].scenes;
-      ($drafts[currentDraftIndex] as MultipleSceneDraft).scenes = newScenes;
+      ($projects[currentProjectIndex] as MultipleSceneProject).scenes = newScenes;
 
       new Notice(`${type === "undo" ? "Undid" : "Redid"} scene reordering`);
     }
     return false;
   });
 
-  const unsubscribe = selectedDraft.subscribe((draft) => {
-    if (!draft) {
+  const unsubscribe = selectedProject.subscribe((project) => {
+    if (!project) {
       return;
     }
     sceneHistory = sceneHistory.filter(
-      (s) => s.draftVaultPath === draft.vaultPath
+      (s) => s.projectVaultPath === project.vaultPath
     );
     if (
-      draft.format === "scenes" &&
+      project.format === "scenes" &&
       (sceneHistory.length === 0 ||
-        sceneHistory[0].draftVaultPath !== draft.vaultPath)
+        sceneHistory[0].projectVaultPath !== project.vaultPath)
     ) {
       sceneHistory = [
         {
-          draftVaultPath: draft.vaultPath,
-          scenes: cloneDeep((draft as MultipleSceneDraft).scenes),
+          projectVaultPath: project.vaultPath,
+          scenes: cloneDeep((project as MultipleSceneProject).scenes),
         },
       ];
       undoIndex = 0;
@@ -349,86 +349,92 @@
     <SortableList
       trackIndents
       bind:items
-      let:item
-      on:orderChanged={itemOrderChanged}
-      on:indentChanged={itemIndentChanged}
+      onorderChanged={itemOrderChanged}
+      onindentChanged={itemIndentChanged}
       {sortableOptions}
       class="sortable-scene-list"
     >
-      <div
-        class="scene-container{item.hidden ? ' hidden' : ''}{item.collapsible ? ' collapsible' : ''}"
-        style="padding-left: calc(({item.indent} * var(--longform-explorer-indent-size)) + 6px {item.collapsible ? '' : '+ var(--size-4-4)'});"
-        class:selected={$activeFile && $activeFile.path === item.path}
-        on:contextmenu|preventDefault={onContext}
-        data-scene-path={item.path}
-        data-scene-indent={item.indent}
-        data-scene-name={item.name}
-        data-scene-status={item.status}
-      >
-        {#if item.collapsible}
-          <Disclosure
-            collapsed={collapsedItems.contains(item.id)}
-            on:click={() => {
-              collapseItem(item.id);
-              return false;
-            }}
-          />
-        {/if}
+      {#snippet children(item)}
         <div
-          style="width: 100%;"
+          class="scene-container{item.hidden ? ' hidden' : ''}{item.collapsible ? ' collapsible' : ''}"
+          style="padding-left: calc(({item.indent} * var(--longform-explorer-indent-size)) + 6px {item.collapsible ? '' : '+ var(--size-4-4)'});"
+          class:selected={$activeFile && $activeFile.path === item.path}
+          role="listitem"
+          oncontextmenu={(e) => { e.preventDefault(); onContext(e); }}
           data-scene-path={item.path}
-          on:click={(e) =>
-            typeof item.path === "string" ? onItemClick(item, e) : {}}
+          data-scene-indent={item.indent}
+          data-scene-name={item.name}
+          data-scene-status={item.status}
         >
-          {#if $pluginSettings.numberScenes}
-            <span class="longform-scene-number">{numberLabel(item)}</span>
+          {#if item.collapsible}
+            <Disclosure
+              collapsed={collapsedItems.contains(item.id)}
+              onclick={() => collapseItem(item.id)}
+            />
           {/if}
           <div
-            id={`longform-scene-${item.name}`}
-            data-item-path={item.path}
-            data-item-name={item.name}
-            style="display: inline;"
-            on:keydown={item.path === editingPath ? onKeydown : null}
-            on:blur={item.path === editingPath ? onBlur : null}
-            contenteditable={item.path === editingPath}
+            style="width: 100%;"
+            role="button"
+            tabindex="0"
+            data-scene-path={item.path}
+            onclick={(e) =>
+              typeof item.path === "string" ? onItemClick(item, e) : {}}
+            onkeydown={(e) => {
+              if (e.key === "Enter" && typeof item.path === "string") onItemClick(item, e as unknown as MouseEvent);
+            }}
           >
-            {item.name}
+            {#if $pluginSettings.numberScenes}
+              <span class="longform-scene-number">{numberLabel(item)}</span>
+            {/if}
+            <div
+              id={`longform-scene-${item.name}`}
+              data-item-path={item.path}
+              data-item-name={item.name}
+              style="display: inline;"
+              role={item.path === editingPath ? "textbox" : undefined}
+              onkeydown={item.path === editingPath ? onKeydown : null}
+              onblur={item.path === editingPath ? onBlur : null}
+              contenteditable={item.path === editingPath}
+              title={item.displayName !== item.name ? item.name : undefined}
+            >
+              {item.path === editingPath ? item.name : item.displayName}
+            </div>
           </div>
         </div>
-      </div>
+      {/snippet}
     </SortableList>
   </div>
-  {#if $selectedDraft && $selectedDraft.format === "scenes" && $selectedDraft.unknownFiles.length > 0}
+  {#if $selectedProject && $selectedProject.format === "scenes" && $selectedProject.unknownFiles.length > 0}
     <div id="longform-unknown-files-wizard">
       <div class="longform-unknown-inner">
         <p class="longform-unknown-explanation">
-          Longform has found {$selectedDraft.unknownFiles.length} new file{$selectedDraft
+          Longform has found {$selectedProject.unknownFiles.length} new file{$selectedProject
             .unknownFiles.length === 1
             ? ""
             : "s"} in your scenes folder.
         </p>
         <div>
-          <button class="longform-unknown-add" on:click={() => doWithAll("add")}
+          <button class="longform-unknown-add" onclick={() => doWithAll("add")}
             >Add all</button
           >
           <button
             class="longform-unknown-ignore"
-            on:click={() => doWithAll("ignore")}>Ignore all</button
+            onclick={() => doWithAll("ignore")}>Ignore all</button
           >
         </div>
         <ul>
-          {#each $selectedDraft.unknownFiles as fileName}
+          {#each $selectedProject.unknownFiles as fileName}
             <li>
               <div class="longform-unknown-file">
                 <span>{fileName}</span>
                 <div>
                   <button
                     class="longform-unknown-add"
-                    on:click={() => doWithUnknown(fileName, "add")}>Add</button
+                    onclick={() => doWithUnknown(fileName, "add")}>Add</button
                   >
                   <button
                     class="longform-unknown-ignore"
-                    on:click={() => doWithUnknown(fileName, "ignore")}
+                    onclick={() => doWithUnknown(fileName, "ignore")}
                     >Ignore</button
                   >
                 </div>

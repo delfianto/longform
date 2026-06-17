@@ -20,22 +20,15 @@ class Suggest<T> {
     this.owner = owner;
     this.containerEl = containerEl;
 
-    containerEl.on(
-      "click",
-      ".suggestion-item",
-      this.onSuggestionClick.bind(this)
-    );
-    containerEl.on(
-      "mousemove",
-      ".suggestion-item",
-      this.onSuggestionMouseover.bind(this)
-    );
+    containerEl.on("click", ".suggestion-item", this.onSuggestionClick.bind(this));
+    containerEl.on("mousemove", ".suggestion-item", this.onSuggestionMouseover.bind(this));
 
     scope.register([], "ArrowUp", (event) => {
       if (!event.isComposing) {
         this.setSelectedItem(this.selectedItem - 1, true);
         return false;
       }
+      return true;
     });
 
     scope.register([], "ArrowDown", (event) => {
@@ -43,6 +36,7 @@ class Suggest<T> {
         this.setSelectedItem(this.selectedItem + 1, true);
         return false;
       }
+      return true;
     });
 
     scope.register([], "Enter", (event) => {
@@ -50,19 +44,20 @@ class Suggest<T> {
         this.useSelectedItem(event);
         return false;
       }
+      return true;
     });
   }
 
-  onSuggestionClick(event: MouseEvent, el: HTMLDivElement): void {
+  onSuggestionClick(event: MouseEvent, el: HTMLElement): void {
     event.preventDefault();
 
-    const item = this.suggestions.indexOf(el);
+    const item = this.suggestions.indexOf(el as HTMLDivElement);
     this.setSelectedItem(item, false);
     this.useSelectedItem(event);
   }
 
-  onSuggestionMouseover(_event: MouseEvent, el: HTMLDivElement): void {
-    const item = this.suggestions.indexOf(el);
+  onSuggestionMouseover(_event: MouseEvent, el: HTMLElement): void {
+    const item = this.suggestions.indexOf(el as HTMLDivElement);
     this.setSelectedItem(item, false);
   }
 
@@ -127,13 +122,9 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
     this.inputEl.addEventListener("input", this.onInputChanged.bind(this));
     this.inputEl.addEventListener("focus", this.onInputChanged.bind(this));
     this.inputEl.addEventListener("blur", this.close.bind(this));
-    this.suggestEl.on(
-      "mousedown",
-      ".suggestion-container",
-      (event: MouseEvent) => {
-        event.preventDefault();
-      }
-    );
+    this.suggestEl.on("mousedown", ".suggestion-container", (event: MouseEvent) => {
+      event.preventDefault();
+    });
   }
 
   onInputChanged(): void {

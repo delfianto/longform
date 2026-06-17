@@ -1,10 +1,11 @@
-# npm
+# deps
 node_modules
 
 # tests
 coverage
 
 # build
+dist
 main.js
 *.js.map
 

@@ -1,16 +1,21 @@
 <script lang="ts">
   // via https://svelte.dev/repl/40f4c7846e6f4052927ff5f9c5271b66?version=3.6.8
 
-  import omit from "lodash/omit";
+  let {
+    value = $bindable(""),
+    minRows = 1,
+    maxRows,
+    ...rest
+  }: {
+    value?: string;
+    minRows?: number;
+    maxRows?: number;
+    placeholder?: string;
+    [key: string]: unknown;
+  } = $props();
 
-  export let value = "";
-  export let minRows = 1;
-  export let maxRows: number;
-
-  $: minHeight = `${minRows * 1.2}rem`;
-  $: maxHeight = maxRows ? `${1 + maxRows * 1.2}rem` : `auto`;
-
-  const props = omit($$props, ["children", "$$slots", "$$scope"]);
+  let minHeight = $derived(`${minRows * 1.2}rem`);
+  let maxHeight = $derived(maxRows ? `${1 + maxRows * 1.2}rem` : "auto");
 </script>
 
 <div class="container">
@@ -19,7 +24,7 @@
     style="min-height: {minHeight}; max-height: {maxHeight}">{value +
       "\n"}</pre>
 
-  <textarea bind:value {...props} />
+  <textarea bind:value {...rest}></textarea>
 </div>
 
 <style>

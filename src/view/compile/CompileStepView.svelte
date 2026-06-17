@@ -8,17 +8,23 @@
     formatStepKind,
     PLACEHOLDER_MISSING_STEP,
   } from "src/compile/steps/abstract-compile-step";
-  import { createEventDispatcher } from "svelte";
 
-  export let step: CompileStep;
-  export let ordinal: number;
-  export let calculatedKind: CompileStepKind | null;
-  export let error: string | null;
-
-  const dispatch = createEventDispatcher();
+  let {
+    step,
+    ordinal,
+    calculatedKind,
+    error,
+    onremoveStep,
+  }: {
+    step: CompileStep;
+    ordinal: number;
+    calculatedKind: CompileStepKind | null;
+    error: string | null;
+    onremoveStep?: () => void;
+  } = $props();
 
   function removeStep() {
-    dispatch("removeStep");
+    onremoveStep?.();
   }
 </script>
 
@@ -28,14 +34,14 @@
       <div class="longform-compile-step-title-container">
         <h4>Invalid Step</h4>
       </div>
-      <button class="longform-remove-step-button" on:click={removeStep}
+      <button class="longform-remove-step-button" onclick={removeStep}
         >X</button
       >
     </div>
     <div class="longform-compile-step-error-container">
       <p class="longform-compile-step-error">
         This workflow contains a step that could not be loaded. Please delete
-        the step to be able to run this workflow. If you’re on mobile, this may
+        the step to be able to run this workflow. If you're on mobile, this may
         be a user script step that did not load.
       </p>
     </div>
@@ -52,7 +58,7 @@
           </div>
         {/if}
       </div>
-      <button class="longform-remove-step-button" on:click={removeStep}
+      <button class="longform-remove-step-button" onclick={removeStep}
         >X</button
       >
     </div>
@@ -78,7 +84,7 @@
                   id={step.id + "-" + option.id}
                   placeholder="key: value"
                   bind:value={step.optionValues[option.id]}
-                />
+                ></textarea>
               {:else}
                 <div class="longform-compile-step-checkbox-container">
                   <input
@@ -177,10 +183,6 @@
     color: var(--text-muted);
     padding: var(--size-4-2) var(--size-4-1) var(--size-4-2) var(--size-4-6);
   }
-
-    .longform-compile-step-description .solo {
-      padding-right: var(--size-4-6);
-    }
 
   .longform-compile-step-options {
     padding: var(--size-4-2) 0;

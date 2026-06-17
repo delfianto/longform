@@ -1,16 +1,13 @@
 import { App, Modal, TFolder } from "obsidian";
-import { insertDraftIntoFrontmatter } from "src/model/draft-utils";
-import { selectedDraftVaultPath } from "src/model/stores";
-import type {
-  Draft,
-  MultipleSceneDraft,
-  SingleSceneDraft,
-} from "src/model/types";
+import { insertProjectFrontmatter } from "src/model/project-utils";
+import { selectedProjectPath } from "src/model/stores";
+import type { Project, MultipleSceneProject, SingleSceneProject } from "src/model/types";
 import { selectedTab } from "src/view/stores";
-import NewProjectModal from "./NewProjectModal.svelte";
+import NewProjectModalContent from "./NewProjectModal.svelte";
+import { mount } from "svelte";
 import { appContext } from "src/view/utils";
 
-export default class NewProjectModalContainer extends Modal {
+export default class NewProjectModal extends Modal {
   private parent: TFolder;
 
   constructor(app: App, parent: TFolder) {
@@ -33,9 +30,7 @@ export default class NewProjectModalContainer extends Modal {
       async (format: "scenes" | "single", title: string, path: string) => {
         const exists = await this.app.vault.adapter.exists(path);
         if (exists) {
-          console.log(
-            `[Longform] Cannot create project at ${path}, already exists.`
-          );
+          console.log(`[Longform] Cannot create project at ${path}, already exists.`);
           return;
         }
 
@@ -44,13 +39,12 @@ export default class NewProjectModalContainer extends Modal {
           await this.app.vault.createFolder(parentPath);
         }
 
-        const newDraft: Draft = (() => {
+        const newProject: Project = (() => {
           if (format === "scenes") {
-            const multi: MultipleSceneDraft = {
+            const multi: MultipleSceneProject = {
               format: "scenes",
               title,
               titleInFrontmatter: true,
-              draftTitle: null,
               vaultPath: path,
               workflow: null,
               sceneFolder: "/",
@@ -58,32 +52,33 @@ export default class NewProjectModalContainer extends Modal {
               ignoredFiles: [],
               unknownFiles: [],
               sceneTemplate: null,
+              ebook: {},
             };
             return multi;
           } else {
-            const single: SingleSceneDraft = {
+            const single: SingleSceneProject = {
               format: "single",
               title,
               titleInFrontmatter: true,
-              draftTitle: null,
               vaultPath: path,
               workflow: null,
+              ebook: {},
             };
             return single;
           }
         })();
 
-        await insertDraftIntoFrontmatter(this.app, path, newDraft);
-        selectedDraftVaultPath.set(path);
+        await insertProjectFrontmatter(this.app, path, newProject);
+        selectedProjectPath.set(path);
         selectedTab.set(format === "scenes" ? "Scenes" : "Project");
         if (format === "single") {
           this.app.workspace.openLinkText(path, "/", false);
         }
         this.close();
-      }
+      },
     );
 
-    new NewProjectModal({
+    mount(NewProjectModalContent, {
       target: entrypoint,
       context,
       props: {

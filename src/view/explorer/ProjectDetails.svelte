@@ -1,103 +1,88 @@
 <script lang="ts">
-  import { last } from "lodash";
   import { normalizePath } from "obsidian";
-  import { draftForPath, projectFolderPath } from "src/model/scene-navigation";
-  import { pluginSettings, projects } from "src/model/stores";
+  import { projectFolderPath } from "src/model/scene-navigation";
   import {
-    drafts,
-    selectedDraft,
-    selectedDraftVaultPath,
+    projects,
+    selectedProject,
+    selectedProjectPath,
+    updateProject,
+    updateScenesProject,
   } from "src/model/stores";
-  import { getContext, onMount } from "svelte";
+  import type { EbookStringKey } from "src/model/types";
+  import { onMount } from "svelte";
   import Disclosure from "../components/Disclosure.svelte";
-  import Icon from "../components/Icon.svelte";
   import { FileSuggest } from "../settings/file-suggest";
   import { FolderSuggest } from "../settings/folder-suggest";
-  import {
-    selectedDraftWordCountStatus,
-    goalProgress,
-    activeFile,
-  } from "../stores";
-  import DraftList from "./DraftList.svelte";
+  import { selectedProjectWordCountStatus } from "../stores";
   import { useApp } from "../utils";
 
   const app = useApp();
 
-  let showMetdata = true;
-  let showWordCount = true;
-  let showDrafts = true;
+  let showMetdata = $state(true);
+  let showEbook = $state(false);
+  let showWordCount = $state(true);
 
   function titleChanged(event: Event) {
-    let newTitle = (event.target as any).value;
-    drafts.update((_drafts) => {
-      const currentDraftIndex = _drafts.findIndex(
-        (d) => d.vaultPath === $selectedDraftVaultPath
+    let newTitle = (event.target as HTMLInputElement).value;
+    projects.update((_projects) => {
+      const currentIndex = _projects.findIndex(
+        (p) => p.vaultPath === $selectedProjectPath
       );
-      if (currentDraftIndex >= 0) {
-        const currentDraft = _drafts[currentDraftIndex];
-        const currentTitle = currentDraft.title;
+      if (currentIndex >= 0) {
+        const current = _projects[currentIndex];
+        const currentTitle = current.title;
         let titleInFrontmatter = true;
 
         if (newTitle.length === 0) {
-          newTitle = last(
-            _drafts[currentDraftIndex].vaultPath.split("/")
-          ).split(".md")[0];
+          newTitle = $selectedProjectPath.split("/").at(-1).replace(/\.md$/, "");
           titleInFrontmatter = false;
         }
 
-        return _drafts.map((d) => {
-          if (d.title === currentTitle) {
-            d.title = newTitle;
-            d.titleInFrontmatter = titleInFrontmatter;
+        return _projects.map((p) => {
+          if (p.title === currentTitle) {
+            p.title = newTitle;
+            p.titleInFrontmatter = titleInFrontmatter;
           }
-          return d;
+          return p;
         });
       }
-      return _drafts;
+      return _projects;
     });
   }
 
-  let sceneFolderInput: HTMLInputElement;
+  let sceneFolderInput: HTMLInputElement = $state(null);
   onMount(() => {
-    if (sceneFolderInput && $selectedDraft.format === "scenes") {
-      const projectPath = projectFolderPath($selectedDraft, app.vault);
+    if (sceneFolderInput && $selectedProject.format === "scenes") {
+      const projectPath = projectFolderPath($selectedProject, app.vault);
       new FolderSuggest(app, sceneFolderInput, projectPath);
     }
   });
 
   async function sceneFolderChanged(event: Event) {
-    const newFolder = (event.target as any).value;
-    if (newFolder.length <= 0 || !$selectedDraft) {
+    const newFolder = (event.target as HTMLInputElement).value;
+    if (newFolder.length <= 0 || !$selectedProject) {
       return;
     }
-    const root = app.vault.getAbstractFileByPath($selectedDraft.vaultPath)
+    const root = app.vault.getAbstractFileByPath($selectedProject.vaultPath)
       .parent.path;
     const path = normalizePath(`${root}/${newFolder}`);
     const exists = await app.vault.adapter.exists(path);
     if (exists) {
-      drafts.update((allDrafts) =>
-        allDrafts.map((d) => {
-          if (
-            d.vaultPath === $selectedDraftVaultPath &&
-            d.format === "scenes"
-          ) {
-            d.sceneFolder = newFolder;
-          }
-          return d;
-        })
-      );
+      updateScenesProject($selectedProjectPath, (p) => {
+        p.sceneFolder = newFolder;
+      });
     }
   }
 
-  let sceneTemplateInput: HTMLInputElement;
+  let sceneTemplateInput: HTMLInputElement = $state(null);
   onMount(() => {
-    if (sceneTemplateInput && $selectedDraft.format === "scenes") {
+    if (sceneTemplateInput && $selectedProject.format === "scenes") {
       new FileSuggest(app, sceneTemplateInput);
     }
   });
   async function sceneTemplateChanged(event: Event) {
-    let newTemplate = (event.target as any).value;
-    if (!$selectedDraft) {
+    let newTemplate = (event.target as HTMLInputElement).value;
+    if (!$selectedProject) {
       return;
     }
     let exists = true;
@@ -108,49 +93,102 @@
     }
 
     if (exists) {
-      drafts.update((allDrafts) =>
-        allDrafts.map((d) => {
-          if (
-            d.vaultPath === $selectedDraftVaultPath &&
-            d.format === "scenes"
-          ) {
-            d.sceneTemplate = newTemplate;
-          }
-          return d;
-        })
-      );
+      updateScenesProject($selectedProjectPath, (p) => {
+        p.sceneTemplate = newTemplate;
+      });
     }
   }
 
-  let projectCount: number;
-  let draftCount: number | null;
-  let sceneCount: number | null;
-  $: {
-    if ($selectedDraftWordCountStatus) {
-      const { scene, draft, project } = $selectedDraftWordCountStatus;
+  // ---- eBook metadata helpers ----
 
+  function updateEbook(mutator: (e: Record<string, any>) => void) {
+    if (!$selectedProjectPath) return;
+    updateProject($selectedProjectPath, (p) => {
+      const next = { ...p.ebook };
+      mutator(next);
+      p.ebook = next;
+    });
+  }
+
+  function ebookStringChanged(field: EbookStringKey) {
+    return (event: Event) => {
+      const raw = (event.target as HTMLInputElement | HTMLTextAreaElement).value;
+      const trimmed = raw.trim();
+      updateEbook((e) => {
+        if (trimmed.length > 0) {
+          e[field] = trimmed;
+        } else {
+          delete e[field];
+        }
+      });
+    };
+  }
+
+  function subjectsChanged(event: Event) {
+    const raw = (event.target as HTMLInputElement).value;
+    const parsed = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    updateEbook((e) => {
+      if (parsed.length > 0) {
+        e.subjects = parsed;
+      } else {
+        delete e.subjects;
+      }
+    });
+  }
+
+  function seriesIndexChanged(event: Event) {
+    const raw = (event.target as HTMLInputElement).value.trim();
+    const n = raw.length === 0 ? NaN : Number(raw);
+    updateEbook((e) => {
+      if (Number.isFinite(n)) {
+        e.seriesIndex = n;
+      } else {
+        delete e.seriesIndex;
+      }
+    });
+  }
+
+  function generateIdentifier() {
+    // crypto.randomUUID is available in modern Electron / Obsidian.
+    const id =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? `urn:uuid:${crypto.randomUUID()}`
+        : `urn:uuid:${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
+    updateEbook((e) => {
+      e.identifier = id;
+    });
+  }
+
+  let coverInput: HTMLInputElement = $state(null);
+  let coverSuggestEl: HTMLInputElement | null = null;
+  // The cover input lives inside `{#if showEbook}` (collapsed by default), so
+  // it does not exist at mount time. Bind FileSuggest the first time the input
+  // appears, and rebind if the underlying element is replaced.
+  $effect(() => {
+    if (coverInput && coverInput !== coverSuggestEl) {
+      new FileSuggest(app, coverInput);
+      coverSuggestEl = coverInput;
+    }
+  });
+
+  let ebook = $derived($selectedProject?.ebook ?? {});
+  let subjectsText = $derived(
+    Array.isArray(ebook.subjects) ? ebook.subjects.join(", ") : ""
+  );
+
+  let projectCount = $state(0);
+  let sceneCount: number | null = $state(null);
+
+  $effect(() => {
+    if ($selectedProjectWordCountStatus) {
+      const { scene, project } = $selectedProjectWordCountStatus;
       projectCount = project;
-      draftCount = $projects[$selectedDraft.title].length > 1 ? draft : null;
-      sceneCount = $selectedDraft.format === "scenes" ? scene : null;
+      sceneCount = $selectedProject.format === "scenes" ? scene : null;
     }
-  }
-
-  let showProgress = false;
-  $: {
-    if ($activeFile && $selectedDraft) {
-      const draft = draftForPath($activeFile.path, $drafts);
-      showProgress = draft && draft.vaultPath === $selectedDraft.vaultPath;
-    }
-  }
-
-  let goalPercentage: number;
-  let goalDescription: string;
-  $: {
-    goalPercentage = Math.ceil(Math.min($goalProgress, 1) * 100);
-    goalDescription = `${Math.round(
-      $goalProgress * $pluginSettings.sessionGoal
-    )}/${$pluginSettings.sessionGoal}`;
-  }
+  });
 
   function pluralize(
     count: number,
@@ -168,56 +206,49 @@
       return `${count.toLocaleString()} ${noun}s`;
     }
   }
-
-  const showNewDraftModal: () => void = getContext("showNewDraftModal");
-  function onNewDraft() {
-    showNewDraftModal();
-  }
 </script>
 
 <div>
-  {#if $selectedDraft}
+  {#if $selectedProject}
     <div class="longform-project-section">
-      <div
+      <button
+        type="button"
         class="longform-project-details-section-header"
-        on:click={() => {
-          showMetdata = !showMetdata;
-        }}
+        onclick={() => { showMetdata = !showMetdata; }}
       >
         <Disclosure collapsed={!showMetdata} />
         <h4>Project Metadata</h4>
-      </div>
+      </button>
       {#if showMetdata}
         <div>
           <label for="longform-project-title">Title</label>
           <input
             id="longform-project-title"
             type="text"
-            value={$selectedDraft.title}
-            on:change={titleChanged}
+            value={$selectedProject.title}
+            onchange={titleChanged}
           />
-          {#if $selectedDraft.format === "scenes"}
+          {#if $selectedProject.format === "scenes"}
             <label for="longform-project-scene-folder">Scene Folder</label>
             <input
               id="longform-project-scene-folder"
               type="text"
-              value={$selectedDraft.sceneFolder}
+              value={$selectedProject.sceneFolder}
               bind:this={sceneFolderInput}
-              on:blur={sceneFolderChanged}
+              onblur={sceneFolderChanged}
             />
             <p class="longform-project-warning">
-              Changing scene folder does not move scenes. If you’re moving
+              Changing scene folder does not move scenes. If you're moving
               scenes to a new folder, move them in your vault first, then
               change this setting.
             </p>
-            <label for="longform-project-scene-template">Scene Template</label
-            >
+            <label for="longform-project-scene-template">Scene Template</label>
             <input
               id="longform-project-scene-template"
               type="text"
-              value={$selectedDraft.sceneTemplate}
+              value={$selectedProject.sceneTemplate}
               bind:this={sceneTemplateInput}
-              on:blur={sceneTemplateChanged}
+              onblur={sceneTemplateChanged}
             />
             <p class="longform-project-warning">
               This file will be used as a template when creating new scenes
@@ -230,68 +261,149 @@
       {/if}
     </div>
   {/if}
-  <div
-    class="longform-project-section word-counts"
-    style={`--progress-text-color:${
-      goalPercentage >= 43 ? "var(--text-on-accent)" : "var(--text-accent)"
-    }`}
-  >
-    <div
+  {#if $selectedProject}
+    <div class="longform-project-section">
+      <button
+        type="button"
+        class="longform-project-details-section-header"
+        onclick={() => { showEbook = !showEbook; }}
+      >
+        <Disclosure collapsed={!showEbook} />
+        <h4>eBook Metadata</h4>
+      </button>
+      {#if showEbook}
+        <div>
+          <label for="longform-ebook-author">Author</label>
+          <input
+            id="longform-ebook-author"
+            type="text"
+            value={ebook.author ?? ""}
+            onblur={ebookStringChanged("author")}
+          />
+
+          <label for="longform-ebook-language">Language</label>
+          <input
+            id="longform-ebook-language"
+            type="text"
+            placeholder="en"
+            value={ebook.language ?? ""}
+            onblur={ebookStringChanged("language")}
+          />
+
+          <label for="longform-ebook-identifier">Identifier</label>
+          <div class="longform-ebook-identifier-row">
+            <input
+              id="longform-ebook-identifier"
+              type="text"
+              placeholder="urn:uuid:…"
+              value={ebook.identifier ?? ""}
+              onblur={ebookStringChanged("identifier")}
+            />
+            <button
+              type="button"
+              class="longform-ebook-generate"
+              onclick={generateIdentifier}
+              title="Generate a new UUID"
+            >
+              Generate
+            </button>
+          </div>
+
+          <label for="longform-ebook-description">Description</label>
+          <textarea
+            id="longform-ebook-description"
+            rows="3"
+            value={ebook.description ?? ""}
+            onblur={ebookStringChanged("description")}
+          ></textarea>
+
+          <label for="longform-ebook-cover">Cover</label>
+          <input
+            id="longform-ebook-cover"
+            type="text"
+            placeholder="assets/cover.png"
+            value={ebook.cover ?? ""}
+            bind:this={coverInput}
+            onblur={ebookStringChanged("cover")}
+          />
+
+          <label for="longform-ebook-publisher">Publisher</label>
+          <input
+            id="longform-ebook-publisher"
+            type="text"
+            value={ebook.publisher ?? ""}
+            onblur={ebookStringChanged("publisher")}
+          />
+
+          <label for="longform-ebook-pubdate">Publication Date</label>
+          <input
+            id="longform-ebook-pubdate"
+            type="date"
+            value={ebook.pubdate ?? ""}
+            onblur={ebookStringChanged("pubdate")}
+          />
+
+          <label for="longform-ebook-rights">Rights</label>
+          <input
+            id="longform-ebook-rights"
+            type="text"
+            value={ebook.rights ?? ""}
+            onblur={ebookStringChanged("rights")}
+          />
+
+          <label for="longform-ebook-subjects">Subjects</label>
+          <input
+            id="longform-ebook-subjects"
+            type="text"
+            placeholder="fiction, science-fiction"
+            value={subjectsText}
+            onblur={subjectsChanged}
+          />
+          <p class="longform-project-warning">Comma-separated. Maps to EPUB <code>dc:subject</code>.</p>
+
+          <label for="longform-ebook-series">Series</label>
+          <input
+            id="longform-ebook-series"
+            type="text"
+            value={ebook.series ?? ""}
+            onblur={ebookStringChanged("series")}
+          />
+
+          <label for="longform-ebook-series-index">Series Index</label>
+          <input
+            id="longform-ebook-series-index"
+            type="number"
+            min="0"
+            step="1"
+            value={ebook.seriesIndex ?? ""}
+            onblur={seriesIndexChanged}
+          />
+        </div>
+      {/if}
+    </div>
+  {/if}
+  <div class="longform-project-section word-counts">
+    <button
+      type="button"
       class="longform-project-details-section-header"
-      on:click={() => {
-        showWordCount = !showWordCount;
-      }}
+      onclick={() => { showWordCount = !showWordCount; }}
     >
       <Disclosure collapsed={!showWordCount} />
       <h4>Word Count</h4>
-    </div>
+    </button>
     {#if showWordCount}
       <div>
-        {#if showProgress}
-          <div
-            class="progress"
-            data-label={goalDescription}
-            title={goalDescription}
-          >
-            <div class="value" style={`width:${goalPercentage}%;`} />
-          </div>
-        {/if}
         {#if sceneCount}
           <p title="Word count in this scene of this project.">
             <strong>Scene:</strong>
             {pluralize(sceneCount, "word")}
           </p>
         {/if}
-        {#if draftCount}
-          <p title="Word count in just this draft of this project.">
-            <strong>Draft:</strong>
-            {pluralize(draftCount, "word")}
-          </p>
-        {/if}
-        <p title="Word count across all drafts of this project.">
+        <p title="Word count for this project.">
           <strong>Project:</strong>
           {pluralize(projectCount, "word")}
         </p>
       </div>
-    {/if}
-  </div>
-  <div class="longform-project-section">
-    <div class="drafts-title-container">
-      <div
-        class="longform-project-details-section-header"
-        on:click={() => {
-          showDrafts = !showDrafts;
-        }}
-      >
-        <Disclosure collapsed={!showDrafts} />
-        <h4>Drafts</h4>
-      </div>
-      <button type="button" on:click={onNewDraft}>
-        <Icon iconName="plus-with-circle" />
-      </button>
-    </div>
-    {#if showDrafts}
-      <DraftList />
     {/if}
   </div>
 </div>
@@ -308,11 +420,6 @@
     padding-top: var(--size-4-4);
   }
 
-  .longform-project-section .right-triangle {
-    margin-left: var(--size-4-1);
-    margin-right: var(--size-4-2);
-  }
-
   .longform-project-details-section-header {
     display: flex;
     flex-direction: row;
@@ -320,6 +427,21 @@
     align-items: center;
     cursor: pointer;
     margin-left: calc(var(--size-4-6) * -1);
+    background: none;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    padding: 0;
+    width: 100%;
+    text-align: left;
+  }
+
+  .longform-project-details-section-header:hover,
+  .longform-project-details-section-header:focus,
+  .longform-project-details-section-header:active {
+    background: none;
+    box-shadow: none;
+    outline: none;
   }
 
   h4 {
@@ -359,55 +481,24 @@
     color: var(--text-normal);
   }
 
-
-  .progress {
-    height: var(--size-4-6);
+  textarea {
     width: 100%;
-    background-color: var(--background-secondary-alt);
-    border-radius: var(--radius-s);
-    position: relative;
-    overflow: hidden;
-    margin-top: var(--size-4-4);
+    resize: vertical;
+    font-family: inherit;
   }
 
-  .progress:before {
-    content: attr(data-label);
-    font-size: var(--font-smallest);
-    color: var(--progress-text-color);
-    font-weight: bold;
-    position: absolute;
-    text-align: center;
-    top: 0;
-    left: 0;
-    right: 0;
+  .longform-ebook-identifier-row {
     display: flex;
-    justify-content: center;
+    gap: var(--size-4-2);
     align-items: center;
-    align-self: center;
-    height: 100%;
   }
 
-  .progress .value {
-    height: 100%;
-    background-color: var(--text-accent);
+  .longform-ebook-identifier-row input {
+    flex: 1;
   }
 
-  .drafts-title-container {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--size-4-2);
-  }
-
-  .drafts-title-container h4 {
-    margin-right: var(--size-4-2);
-  }
-
-  .drafts-title-container button {
-    margin: 0;
-    padding: var(--size-4-2);
-    color: var(--interactive-accent);
-    background-color: inherit;
+  .longform-ebook-generate {
+    flex-shrink: 0;
+    font-size: var(--font-ui-smaller);
   }
 </style>

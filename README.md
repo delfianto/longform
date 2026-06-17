@@ -1,153 +1,141 @@
-## Longform
+# Longform (delfianto fork)
 
-Longform is a plugin for [Obsidian](https://obsidian.md) that helps you write and edit novels, screenplays, and other long projects. It lets you organize a series of notes, or _scenes_, into an ordered manuscript. It also supports single-note projects for shorter works.
+A personal fork of [kevboh/longform](https://github.com/kevboh/longform) — the Obsidian plugin for writing novels, screenplays, and other long-form projects. This fork rebuilds the toolchain and rethinks how project metadata lives in your vault, primarily to:
 
-> [!TIP]
-> If you’d like a way to sync, share your manuscripts with others, and edit them on the web check out my other project, [screen.garden](https://screen.garden).
+- make `Index.md` frontmatter safe to round-trip through Obsidian's Properties UI without nuking your project, and
+- treat eBook / Dublin Core metadata as a first-class part of the project — no separate sidecar files.
 
-Major features include:
+If you want stable, community-supported Longform, use [the upstream](https://github.com/kevboh/longform). It is what most people want. The rest of this README assumes you've read the upstream's [README](https://github.com/kevboh/longform/blob/main/README.md) at least once and want to know what's different here.
 
-- A dedicated sidebar that collects your projects from across your vault;
-- A [reorderable, nestable list](./docs/MULTIPLE_SCENE_PROJECTS.md) of scenes;
-- Scene/draft/project [word counts](./docs/WORD_COUNTS.md#word-counts-for-projects-drafts-and-scenes);
-- Daily [writing session goals](./docs/WORD_COUNTS.md#writing-sessions-and-word-count-goals) with lots of options to help fit your writing style;
-- A [workflow-based compilation tool](./docs/COMPILE.md) that can create manuscripts from your projects;
-- Support for [single-scene projects](/docs/SINGLE_SCENE_PROJECTS.md) so that your shorter works can use the same workflows and tooling as your longer ones;
-- Plus lots of commands, modals, and menu items to help you manage your work.
+> [!CAUTION]
+> This fork makes **breaking changes** to the `Index.md` frontmatter schema and ships **no automated migration** for projects authored against upstream's `2.x`. Existing projects need to be hand-edited once. See [Breaking changes](#breaking-changes-vs-upstream-2x) below.
 
-A Getting Started guide follows; there is also reasonably-complete [documentation](./docs/).
+## What this is
+
+- A personal fork, version-bumped to **3.0**, sharing the upstream plugin id `longform`.
+- Modernized stack: [Bun](https://bun.com), [Vite+](https://voidzero.dev) (alpha) as a unified toolchain, Svelte 5 (runes), TypeScript 5.7+.
+- **Flat frontmatter schema** — every project key lives at the top level of `Index.md` so Obsidian's Properties UI can edit it without flattening or losing structure.
+- **eBook metadata first-class** — `author`, `language`, `identifier`, `description`, `cover`, `publisher`, `pubdate`, `rights`, `subjects`, `series`, `seriesIndex` live alongside `title` / `workflow` / `scenes`. An EPUB-producing compile step can read them directly; no sidecar file.
+- **Scene display labels** — the Scenes tab uses each scene file's `frontmatter.title` as its row label (live-updating), falling back to the filename. Lets you name files concisely (`ch01-s02.md`) while displaying a friendlier title.
+- All other upstream features still work: sidebar pane, reorderable nested scene list, per-project/per-scene word counts in the Project tab, compile workflows, single-scene and multi-scene projects, multiple drafts grouped by title. Writing-session goals and the status-bar word count have been removed — Obsidian's built-in word-count statistic covers the latter.
+
+## What this is NOT
+
+- **Not the upstream Longform.** It will not appear in Obsidian's Community Plugins store. Installation is manual.
+- **Not a drop-in replacement** for existing Longform `2.x` projects. The schema break is intentional and one-time.
+- **Not maintained for general users.** Built to scratch my own writing setup; happy to take PRs but no roadmap, no support promises, no guarantees of stability across releases.
+- **Not co-installable with upstream Longform** — both plugins claim the same plugin id. Disable one before enabling the other.
+
+## Breaking changes vs. upstream `2.x`
+
+| Area | Upstream `2.x` | This fork (`3.x`) |
+|---|---|---|
+| Discriminator | Nested `longform:` object with `format:` inside | Top-level `longform: scenes` or `longform: single` |
+| Project keys | Nested under `longform.*` | Top-level — `title`, `workflow`, `sceneFolder`, `scenes`, `ignoredFiles`, `sceneTemplate` |
+| Scene hierarchy | Nested YAML arrays (`- - second scene`) | Flat array with `> ` prefix tokens (`"> second scene"`) — round-trips safely through Obsidian's Properties UI |
+| eBook metadata | Not handled; users keep a sidecar file | First-class top-level keys (see above) plus a collapsible "eBook Metadata" section in the Project tab, with a Generate-UUID button and FileSuggest for cover |
+| Scene display label | Filename only | `frontmatter.title` of each scene file, falling back to filename |
+| Migration | Plugin runs a migration on first launch | **None.** Files using the legacy nested form are silently ignored. |
+| `v1` (folder-based) → `v2` migration | Built-in `Migrate` button + docs | **Removed.** Files predating `v2` are unsupported. |
+
+### Migrating an existing `2.x` project
+
+Open each `Index.md` and rewrite the frontmatter. **Before:**
+
+```yaml
+---
+longform:
+  format: scenes
+  title: My Novel
+  workflow: Default Workflow
+  sceneFolder: /
+  scenes:
+    - first scene
+    - - second scene
+      - third scene
+    - fourth
+  ignoredFiles:
+    - "*-scratch"
+---
+```
+
+**After:**
+
+```yaml
+---
+longform: scenes
+title: My Novel
+workflow: Default Workflow
+sceneFolder: /
+scenes:
+  - first scene
+  - "> second scene"
+  - "> third scene"
+  - fourth
+ignoredFiles:
+  - "*-scratch"
+---
+```
+
+That's the whole migration. Each nested array level in `scenes:` becomes one `> ` token. Save the file and the project reappears in the Longform pane. eBook fields are optional and can be added later through the Project tab UI.
+
+See [docs/INDEX_FILE.md](./docs/INDEX_FILE.md) for the full schema and [docs/MULTIPLE_SCENE_PROJECTS.md](./docs/MULTIPLE_SCENE_PROJECTS.md) for the hierarchy details.
 
 ## Installing
 
-Longform is in the Community Plugins section of Obsidian’s settings. You may also install it manually by copying the `main.js`, `manifest.json`, and `styles.css` files from a release into a `longform/` folder in the `.obsidian/plugins` folder of your vault. The Community Plugins interface is preferred.
+Not in the Community Plugins store. Manual install:
 
-## Getting Started
+1. Download `manifest.json`, `main.js`, and `styles.css` from a [release](https://github.com/delfianto/longform/releases).
+2. Drop them into `.obsidian/plugins/longform/` inside your vault.
+3. Enable **Longform (fork)** in Obsidian's Community Plugins settings.
 
-Longform works by searching your vault for any note that contains a frontmatter entry named `longform` (don’t worry if you don’t know what that means; Longform includes tools to help you generate these files). You can think of these notes as the “spines” or tables of contents of your projects. Let‘s walk through creating two different Longform projects: a novel and a short story.
+Disable the upstream Longform first if you have it — both plugins share the `longform` plugin id and will conflict.
 
-### Creating a Novel
+## Getting started
 
-1. To begin, find or create a folder somewhere in your vault in which you’d like to create your novel. Right-click it and select `Create Longform Project`.
+UI flows for creating, reordering, and compiling projects are unchanged from upstream. Refer to the upstream [README](https://github.com/kevboh/longform/blob/main/README.md) for the visual walkthrough. The only thing that differs in practice is the on-disk `Index.md` schema, covered above and in [docs/INDEX_FILE.md](./docs/INDEX_FILE.md).
 
-![Create Longform Project menu item](./docs/res/walkthrough-create-longform-project.png)
+## Stack
 
-2. A `Create Project` modal will appear. This modal lets us choose between Multi- and Single-scene project types. We’re creating a novel, so we’ll stick with Multi. The text under the project type switch explains a little about how each type of project works.
+| Layer | Tool |
+|---|---|
+| Runtime / package manager | [Bun](https://bun.com) |
+| Build / lint / format / test / type-aware lint | [Vite+](https://voidzero.dev) (alpha) — `vp build`, `vp test`, `vp check`, `vp lint`, `vp fmt` |
+| UI framework | Svelte 5 (runes mode) |
+| Type-checking | `tsc --noEmit` + `svelte-check` (kept until Vite+ adds Svelte type-check coverage) |
 
-3. In the `Title` field, enter your novel’s title. For this example we’ll use `My Great Novel`. The modal tells us the type of project we’re creating and the location of the _Index File_ it will create in our vault. We’ll get into what Index Files are in a moment.
+Standalone `vite` and `vitest` are not declared as devDependencies — they resolve to Vite+'s vendored versions via `package.json` `overrides`.
 
-![A filled-out create multi-scene project modal](./docs/res/walkthrough-create-multi.png)
+## Development
 
-> **Note**
->
-> You don’t have to use this menu item and modal to create Longform projects. As you will see shortly, Longform projects are one or more notes organized around some YAML frontmatter. You can always create a note yourself somewhere in your vault and use the `Insert Multi-Scene Frontmatter` and `Insert Single-Scene Frontmatter` commands to populate the note—Longform will recognize it automatically. Although not recommended, you can also author the YAML frontmatter manually, too.
-
-4. Click `Create`. Longform has created the promised file. If we switch to the [Longform pane](./docs/THE_LONGFORM_PANE.md) in the sidebar the project is already selected. You should see three tabs: Scenes, Project, and Compile, and Scenes should be selected.
-
-![The newly-created project in the Longform pane](./docs/res/walkthrough-multi-fresh-pane.png)
-
-5. That _New Scene_ placeholder is a text field—click it and enter something that sounds like the first scene of a novel, maybe “The Sun Rises on Dublin,” and press enter. You should now be editing a so-named note, and your scene should appear in the Scenes tab:
-
-![the "My Great Novel" novel with a freshly-created scene](./docs/res/multi-walkthrough-2.png)
-
-6. Your editor also now has the scene open and ready to write. If you click the small `My Great Novel/Index.md` link under your project name, you’ll be taken back to the index file where you’ll see your new scene listed under the `scenes` frontmatter entry:
-
-```yaml
-scenes:
-  - The Sun Rises on Dublin
+```sh
+bun install          # one-time
+bun run dev          # watch build into test-longform-vault/.obsidian/plugins/longform
+bun run build        # production build → ./dist (main.js, styles.css, manifest.json)
+bun run test         # vp test run (vitest)
+bun run type-check   # tsc + svelte-check
+bun run check        # vp check (format + lint)
+bun run lint:fix     # autofix lint
+bun run format       # autofix formatting
 ```
 
-This is how Longform tracks your work.
+Release artifacts after `bun run build` live in `./dist/`. Zip the three files there for a GitHub release; users drop them into `.obsidian/plugins/longform/`.
 
-> **Warning**
->
-> You should probably avoid editing the `longform` frontmatter in your index file directly unless you really know what you’re doing. Longform supports direct editing of it and will do its best to sync, but it’s easy to accidentally mess things up. You can always revert your changes, though: Longform will never delete files based on changes in the index file.
+## Scene-only styling
 
-7. You’re now ready to write your novel. Keep adding scenes as needed. If you’d like to add structure to your novel you can drag scenes left or right (or use the indent/Unindent commands) to create folders of scenes with parent scenes. [The full documentation for multiple-scene projects](./docs/MULTIPLE_SCENE_PROJECTS.md) might be useful.
-
-8. When you’re ready to generate a single manuscript for your readers, use the [Compile](./docs/COMPILE.md) feature. Congratulations! You’ve written a novel.
-
-### Creating a Short Story
-
-Longform also supports [single-scene projects](./docs/SINGLE_SCENE_PROJECTS.md) that live as a single note in your vault. Let’s create one.
-
-1. Right-click the enclosing folder as before and select the `Create Longform Project` menu item.
-
-2. In the Create Project modal, choose `Single`. Let’s write something noirish and call it `On the Rooftops`.
-
-![Creating a single-scene Longform project in the Create Project modal](./docs/res/walkthrough-create-single.png)
-
-3. Click Create. Because this is a single-scene project, there is only one note associated with it and Longform will open it automatically. The frontmatter at the top tells Longform how to track your project; we’ll write the story in the note itself.
-
-4. Write your story! When you’re ready, you can use the Compile tab to generate a manuscript. Single-scene projects can use scene and manuscript steps in any order.
-
-## Drafts & Projects
-
-Longform supports the creation of multiple _drafts_ for a given project. Under the hood, drafts are just different Longform projects with the same title—they are then grouped together by Longform and presented as different versions of the same project.
-
-To create a new draft of a project use the new draft (+) button in the Project tab, or create an entirely new project somewhere and set the title in the Project tab to be the same as your existing project.
-
-You can rename drafts by right-clicking them in the Project tab and selecting Rename, or by setting the `draftTitle` attribute in their `longform` frontmatter.
-
-## Compiling
-
-The Compile tab allows you to create custom workflows that turn your project into a manuscript. See [COMPILE.md](https://github.com/kevboh/longform/blob/main/docs/COMPILE.md) for more.
-
-> [!TIP]
-> You can find more compile steps for various use cases in the [community collection of compile steps](https://github.com/obsidian-community/longform-compile-steps).
-
-## Scene-only Styling
-
-Longform will automatically attach a `.longform-leaf` class to the container panes of any notes that are part of a Longform project. This means you can add custom CSS snippets to Obsidian that style your writing environment and _only_ your writing environment. For example, I prefer a dark theme for Obsidian but a light theme for writing, so my writing snippet looks something like this:
-
-```css
-/* Set some variables for the entire leaf. */
-.longform-leaf {
-  --background-primary: white;
-  --background-primary-alt: white;
-  --background-secondary: white;
-  --background-secondary-alt: white;
-}
-
-/* Style the editor. */
-.longform-leaf .markdown-source-view {
-  --background-primary: white;
-  --background-primary-alt: white;
-  --background-secondary: white;
-  --background-secondary-alt: white;
-  --text-selection: #aaa;
-  --text-normal: black;
-  color: black;
-  background-color: white;
-}
-
-/* Style text selection. */
-.longform-leaf .suggestion-item.is-selected {
-  background-color: var(--text-accent);
-}
-
-/* Style the header of the leaf. */
-.longform-leaf .view-header {
-  background-color: white;
-}
-
-/* Style the text content of the leaf header. */
-.longform-leaf .view-header-title {
-  --text-normal: black;
-}
-```
-
-Longform’s own UI will always use existing Obsidian CSS theme variables when possible, so it should always look at home in your theme.
+Longform attaches the `.longform-leaf` CSS class to any pane editing a scene or index file. This lets you style your writing environment independently of the rest of Obsidian. See the upstream [Scene-only Styling](https://github.com/kevboh/longform#scene-only-styling) section for a working example — behavior is unchanged in this fork.
 
 ## Troubleshooting
 
-First, the most important bit: **Longform is built specifically to never alter the contents on your notes.** The only note it rewrites is a project’s index file. As such, Longform can’t delete or lose your notes.
+> [!IMPORTANT]
+> **Longform never alters the contents of your scene notes.** The only file it rewrites is each project's `Index.md`. Scene files are read-only from the plugin's perspective. (The optional `writeProperty` setting can also add `longform-order` / `longform-number` to scene files; that's the only exception, and it's opt-in.)
 
-Longform does a lot of complex tracking to bridge a project’s metadata with the state of files on disk. Although it tries to cover lots of edge cases, it is possible to cause desync between what Longform thinks is happening with projects and what’s actually going on. Most often this occurs when a project’s frontmatter is malformed or invalid in some way. Because projects are inferred from frontmatter, if your frontmatter is correct you can always restart Obsidian (or choose the "reload without saving" command) to force Longform to recalculate projects.
-
-## Sponsorship
-
-Any [sponsorship](https://github.com/sponsors/kevboh) is deeply appreciated, although by no means necessary.
+If a project disappears from the sidebar after you edit its `Index.md`, the frontmatter no longer matches the v3 schema — most often a missing top-level `longform: scenes` (or `single`). Either fix it by hand or restart Obsidian. Longform recomputes projects from frontmatter on each load and never deletes files based on frontmatter state.
 
 ## License
 
-See [LICENSE.md](./LICENSE.md). You can view the license’s history [here](https://git.sr.ht/~boringcactus/fafol/tree/master/LICENSE.md).
+See [LICENSE.md](./LICENSE.md). Same MIT lineage as upstream.
+
+## Credits
+
+This fork stands entirely on [kevboh's](https://github.com/kevboh) original [Longform](https://github.com/kevboh/longform). The plugin architecture, compile pipeline, sidebar UX, and most of what makes Longform useful were all there before I touched it. The community [collection of compile steps](https://github.com/obsidian-community/longform-compile-steps) continues to apply — the compile step API is unchanged.

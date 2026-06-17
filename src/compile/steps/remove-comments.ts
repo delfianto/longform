@@ -1,14 +1,5 @@
-import type {
-  CompileContext,
-  CompileInput,
-  CompileManuscriptInput,
-  CompileSceneInput,
-} from "..";
-import {
-  CompileStepKind,
-  makeBuiltinStep,
-  CompileStepOptionType,
-} from "./abstract-compile-step";
+import type { CompileContext, CompileInput, CompileManuscriptInput, CompileSceneInput } from "..";
+import { CompileStepKind, makeBuiltinStep, CompileStepOptionType } from "./abstract-compile-step";
 
 const MARKDOWN_COMMENTS_REGEX = /%%([\s\S]*?)%%/gm;
 const HTML_COMMENTS_REGEX = /<!--([\s\S]*?)-->/gm;
@@ -37,12 +28,8 @@ export const RemoveCommentsStep = makeBuiltinStep({
     ],
   },
   compile(input: CompileInput, context: CompileContext): CompileInput {
-    const removeMarkdownComments = context.optionValues[
-      "remove-markdown-comments"
-    ] as boolean;
-    const removeHTMLComments = context.optionValues[
-      "remove-html-comments"
-    ] as boolean;
+    const removeMarkdownComments = context.optionValues["remove-markdown-comments"] as boolean;
+    const removeHTMLComments = context.optionValues["remove-html-comments"] as boolean;
 
     const replaceComments = (contents: string) => {
       if (removeMarkdownComments) {

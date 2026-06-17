@@ -9,27 +9,26 @@ import {
 } from "obsidian";
 import type { CompileStatus, Workflow } from "src/compile";
 import { compile, CompileStepKind } from "src/compile";
-import type { Draft, MultipleSceneDraft } from "src/model/types";
-import AddStepModal from "../compile/add-step-modal";
-import ConfirmActionModal from "../ConfirmActionModal";
+import type { Project, MultipleSceneProject } from "src/model/types";
+import AddStepModal from "../modals/AddStepModal";
+import ConfirmActionModal from "../modals/ConfirmActionModal";
 import { ICON_NAME } from "../icon";
 import ExplorerView from "./ExplorerView.svelte";
+import { mount, unmount } from "svelte";
 import { scenePath } from "src/model/scene-navigation";
-import { migrate } from "src/model/migration";
 import { get } from "svelte/store";
-import { drafts, pluginSettings, selectedDraft } from "src/model/stores";
-import { insertScene } from "src/model/draft-utils";
-import NewDraftModal from "src/view/project-lifecycle/new-draft-modal";
-import { UndoManager } from "../undo/undo-manager";
+import { projects, selectedProject } from "src/model/stores";
+import { insertScene } from "src/model/project-utils";
+import { UndoManager } from "../undo-manager";
 import { ignoreScene } from "./scene-menu-items";
 import { appContext } from "../utils";
 
 export const VIEW_TYPE_LONGFORM_EXPLORER = "VIEW_TYPE_LONGFORM_EXPLORER";
 
 export class ExplorerPane extends ItemView {
-  private explorerView: ExplorerView;
+  private explorerView: ReturnType<typeof mount>;
   private undoManager = new UndoManager();
-  private scope: Scope;
+  private keyScope: Scope;
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -48,32 +47,24 @@ export class ExplorerPane extends ItemView {
   }
 
   async onOpen(): Promise<void> {
-    this.scope = new Scope(this.app.scope);
-    this.scope.register(
-      ["Mod"],
-      "z",
-      (evt: KeyboardEvent, ctx: KeymapContext) => {
-        const activePane = this.app.workspace.getActiveViewOfType(ExplorerPane);
-        if (activePane === this) {
-          this.undoManager.send("undo", evt, ctx);
-          return false;
-        }
-        return true;
+    this.keyScope = new Scope(this.app.scope);
+    this.keyScope.register(["Mod"], "z", (evt: KeyboardEvent, ctx: KeymapContext) => {
+      const activePane = this.app.workspace.getActiveViewOfType(ExplorerPane);
+      if (activePane === this) {
+        this.undoManager.send("undo", evt, ctx);
+        return false;
       }
-    );
+      return true;
+    });
 
-    this.scope.register(
-      ["Mod", "Shift"],
-      "z",
-      (evt: KeyboardEvent, ctx: KeymapContext) => {
-        const activePane = this.app.workspace.getActiveViewOfType(ExplorerPane);
-        if (activePane === this) {
-          this.undoManager.send("redo", evt, ctx);
-          return false;
-        }
-        return true;
+    this.keyScope.register(["Mod", "Shift"], "z", (evt: KeyboardEvent, ctx: KeymapContext) => {
+      const activePane = this.app.workspace.getActiveViewOfType(ExplorerPane);
+      if (activePane === this) {
+        this.undoManager.send("redo", evt, ctx);
+        return false;
       }
-    );
+      return true;
+    });
 
     const context = appContext(this);
 
@@ -87,8 +78,8 @@ export class ExplorerPane extends ItemView {
         description: string,
         yesText: string,
         yesAction: () => void,
-        noText: string = undefined,
-        noAction: () => void = undefined
+        noText?: string,
+        noAction?: () => void,
       ) => {
         new ConfirmActionModal(
           this.app,
@@ -97,139 +88,111 @@ export class ExplorerPane extends ItemView {
           yesText,
           yesAction,
           noText,
-          noAction
+          noAction,
         ).open();
-      }
+      },
     );
 
     // Create a fully-qualified path to a scene from its name.
-    context.set(
-      "makeScenePath",
-      (draft: MultipleSceneDraft, sceneName: string) =>
-        scenePath(sceneName, draft, this.app.vault)
+    context.set("makeScenePath", (project: MultipleSceneProject, sceneName: string) =>
+      scenePath(sceneName, project, this.app.vault),
     );
 
     // Context function for opening scene notes on click
-    context.set(
-      "onSceneClick",
-      (path: string, paneType: PaneType | boolean) => {
-        this.app.workspace.openLinkText(path, "/", paneType);
-      }
-    );
+    context.set("onSceneClick", (path: string, paneType: PaneType | boolean) => {
+      this.app.workspace.openLinkText(path, "/", paneType);
+    });
 
     // Context function for creating new scene notes given a path
     context.set("onNewScene", async (name: string, open: boolean) => {
       await insertScene(
         this.app,
-        drafts,
-        get(selectedDraft) as MultipleSceneDraft,
+        projects,
+        get(selectedProject) as MultipleSceneProject,
         name,
         this.app.vault,
         { at: "end", relativeTo: null },
-        open
+        open,
       );
     });
 
-    // Context function for creating new draft folders given a path
-    context.set(
-      "onNewDraft",
-      async (path: string, copying?: { from: string; to: string }[]) => {
-        if (copying) {
-          await this.app.vault.createFolder(path);
-          // do copy
-          for (const toCopy of copying) {
-            await this.app.vault.adapter.copy(toCopy.from, toCopy.to);
-          }
-        } else {
-          await this.app.vault.createFolder(path);
-        }
-      }
-    );
-
     const addRelativeScene = (at: "before" | "after", file: TAbstractFile) => {
-      const draft = get(selectedDraft) as MultipleSceneDraft;
+      const project = get(selectedProject) as MultipleSceneProject;
       let sceneName = "Untitled";
       let count = 0;
-      const sceneNames = new Set(draft.scenes.map((s) => s.title));
+      const sceneNames = new Set(project.scenes.map((s) => s.title));
       while (sceneNames.has(sceneName)) {
         count = count + 1;
         sceneName = `Untitled ${count}`;
       }
 
-      const relativeTo = draft.scenes
-        .map((s) => s.title)
-        .indexOf(file.name.split(".md")[0]);
+      const relativeTo = project.scenes.map((s) => s.title).indexOf(file.name.split(".md")[0]);
 
       if (relativeTo >= 0) {
         insertScene(
           this.app,
-          drafts,
-          draft,
+          projects,
+          project,
           sceneName,
           this.app.vault,
           {
             at,
             relativeTo,
           },
-          true
+          true,
         );
       }
     };
 
     // Context function for showing a right-click menu
-    context.set(
-      "onContextClick",
-      (path: string, x: number, y: number, onRename: () => void) => {
-        const file = this.app.vault.getAbstractFileByPath(path);
-        if (!file) {
-          return;
-        }
-        const menu = new Menu();
-        menu.addSeparator();
-        menu.addItem((item) => {
-          item.setTitle("Rename");
-          item.setIcon("pencil");
-          item.onClick(onRename);
-        });
-        menu.addItem((item) => {
-          item.setTitle("Delete");
-          item.setIcon("trash");
-          item.onClick(async () => {
-            if (file) {
-              await this.app.vault.trash(file, true);
-            }
-          });
-        });
-        menu.addItem((item) => {
-          item.setTitle("Open in new pane");
-          item.setIcon("vertical-split");
-          item.onClick(() => this.app.workspace.openLinkText(path, "/", true));
-        });
-        menu.addItem((item) => {
-          item.setTitle("Add new scene above");
-          item.setIcon("document");
-          item.onClick(() => addRelativeScene("before", file));
-        });
-        menu.addItem((item) => {
-          item.setTitle("Add new scene below");
-          item.setIcon("document");
-          item.onClick(() => addRelativeScene("after", file));
-        });
-        menu.addItem((item) => {
-          item.setTitle("Ignore note in Longform");
-          item.setIcon("minus-circle");
-          item.onClick(() =>
-            ignoreScene(
-              file.name.endsWith(".md") ? file.name.slice(0, -3) : file.name
-            )
-          );
-        });
-        // Triggering this event lets other apps insert menu items
-        // including Obsidian, giving us lots of stuff for free.
-        this.app.workspace.trigger("file-menu", menu, file, "longform");
-        menu.showAtPosition({ x, y });
+    context.set("onContextClick", (path: string, x: number, y: number, onRename: () => void) => {
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (!file) {
+        return;
       }
-    );
+      const menu = new Menu();
+      menu.addSeparator();
+      menu.addItem((item) => {
+        item.setTitle("Rename");
+        item.setIcon("pencil");
+        item.onClick(onRename);
+      });
+      menu.addItem((item) => {
+        item.setTitle("Delete");
+        item.setIcon("trash");
+        item.onClick(async () => {
+          if (file) {
+            await this.app.vault.trash(file, true);
+          }
+        });
+      });
+      menu.addItem((item) => {
+        item.setTitle("Open in new pane");
+        item.setIcon("vertical-split");
+        item.onClick(() => this.app.workspace.openLinkText(path, "/", true));
+      });
+      menu.addItem((item) => {
+        item.setTitle("Add new scene above");
+        item.setIcon("document");
+        item.onClick(() => addRelativeScene("before", file));
+      });
+      menu.addItem((item) => {
+        item.setTitle("Add new scene below");
+        item.setIcon("document");
+        item.onClick(() => addRelativeScene("after", file));
+      });
+      menu.addItem((item) => {
+        item.setTitle("Ignore note in Longform");
+        item.setIcon("minus-circle");
+        item.onClick(() =>
+          ignoreScene(file.name.endsWith(".md") ? file.name.slice(0, -3) : file.name),
+        );
+      });
+      // Triggering this event lets other apps insert menu items
+      // including Obsidian, giving us lots of stuff for free.
+      this.app.workspace.trigger("file-menu", menu, file, "longform");
+      menu.showAtPosition({ x, y });
+    });
     context.set("showDraftMenu", (x: number, y: number, action: () => void) => {
       const menu = new Menu();
       menu.addItem((item) => {
@@ -246,13 +209,13 @@ export class ExplorerPane extends ItemView {
     context.set(
       "compile",
       (
-        draft: Draft,
+        project: Project,
         workflow: Workflow,
         kinds: CompileStepKind[],
-        statusCallback: (status: CompileStatus) => void
+        statusCallback: (status: CompileStatus) => void,
       ) => {
-        compile(this.app, draft, workflow, kinds, statusCallback);
-      }
+        compile(this.app, project, workflow, kinds, statusCallback);
+      },
     );
 
     context.set("openCompileStepMenu", () => new AddStepModal(this.app).open());
@@ -262,7 +225,7 @@ export class ExplorerPane extends ItemView {
         x: number,
         y: number,
         currentWorkflowName: string,
-        action: (type: "new" | "rename" | "delete") => void
+        action: (type: "new" | "rename" | "delete") => void,
       ) => {
         const menu = new Menu();
         menu.addItem((item) => {
@@ -283,18 +246,10 @@ export class ExplorerPane extends ItemView {
           });
         }
         menu.showAtPosition({ x, y });
-      }
+      },
     );
 
-    context.set("migrate", () => {
-      migrate(get(pluginSettings), this.app);
-    });
-
-    context.set("showNewDraftModal", () => {
-      new NewDraftModal(this.app).open();
-    });
-
-    this.explorerView = new ExplorerView({
+    this.explorerView = mount(ExplorerView, {
       target: this.contentEl,
       context,
     });
@@ -303,7 +258,7 @@ export class ExplorerPane extends ItemView {
   async onClose(): Promise<void> {
     this.undoManager.destroy();
     if (this.explorerView) {
-      this.explorerView.$destroy();
+      await unmount(this.explorerView);
     }
   }
 }

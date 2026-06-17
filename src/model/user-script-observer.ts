@@ -1,85 +1,41 @@
 import debounce from "lodash/debounce";
 import type { Vault, TAbstractFile } from "obsidian";
 import type { CompileStep, Workflow } from "src/compile";
-import {
-  CompileStepKind,
-  CompileStepOptionType,
-  makeBuiltinStep,
-} from "src/compile";
-import { pluginSettings, userScriptSteps, workflows } from "src/model/stores";
-import type { Unsubscriber } from "svelte/store";
+import { CompileStepKind, CompileStepOptionType, makeBuiltinStep } from "src/compile";
+import { userScriptSteps, workflows } from "src/model/stores";
+import { longformDataDir } from "src/lib/path";
 import { get } from "svelte/store";
 
 const DEBOUNCE_SCRIPT_LOAD_DELAY_MS = 10_000;
 
 /**
- * Watches the user's script folder and loads the scripts it finds there.
+ * Watches `<vault>/.obsidian/longform/` for `*.js` files and loads them
+ * as user compile steps. The folder is a fixed convention, colocated
+ * with `workflows.json`.
  */
 export class UserScriptObserver {
   private vault: Vault;
-  userScriptFolder: string | null;
-  private unsubscribeScriptFolder: Unsubscriber;
-  private initializedSteps = false;
-  private onScriptModify: any;
+  private onScriptModify: () => void;
 
-  constructor(vault: Vault, userScriptFolder: string | null) {
+  constructor(vault: Vault) {
     this.vault = vault;
-    this.userScriptFolder = userScriptFolder;
     this.onScriptModify = debounce(() => {
-      console.log(
-        `[Longform] File in user script folder modified, reloading scripts…`
-      );
+      console.log(`[Longform] File in user script folder modified, reloading scripts…`);
       this.loadUserSteps();
     }, DEBOUNCE_SCRIPT_LOAD_DELAY_MS);
   }
 
-  destroy(): void {
-    this.unsubscribeScriptFolder();
+  private get folder(): string {
+    return longformDataDir(this.vault);
   }
 
-  beginObserving(): void {
-    if (this.unsubscribeScriptFolder) {
-      this.unsubscribeScriptFolder();
-    }
-    this.unsubscribeScriptFolder = pluginSettings.subscribe(async (s) => {
-      if (
-        this.initializedSteps &&
-        s.userScriptFolder === this.userScriptFolder
-      ) {
-        return;
-      }
-
-      if (s.userScriptFolder == null) {
-        return;
-      }
-
-      const valid = await this.vault.adapter.exists(s.userScriptFolder);
-      if (!valid) {
-        return;
-      }
-
-      this.userScriptFolder = s.userScriptFolder;
-      if (this.userScriptFolder) {
-        await this.loadUserSteps();
-      } else {
-        userScriptSteps.set(null);
-        console.log("[Longform] Cleared user script steps.");
-      }
-    });
-  }
-
-  async loadUserSteps(): Promise<CompileStep[]> {
-    if (!this.userScriptFolder) {
-      return;
-    }
-
-    const valid = await this.vault.adapter.exists(this.userScriptFolder);
-    if (!valid) {
+  async loadUserSteps(): Promise<CompileStep[] | undefined> {
+    if (!(await this.vault.adapter.exists(this.folder))) {
       return;
     }
 
     // Get all .js files in folder
-    const { files } = await this.vault.adapter.list(this.userScriptFolder);
+    const { files } = await this.vault.adapter.list(this.folder);
     const scripts = files.filter((f) => f.endsWith("js"));
 
     const userSteps: CompileStep[] = [];
@@ -88,17 +44,12 @@ export class UserScriptObserver {
         const step = await this.loadScript(file);
         userSteps.push(step);
       } catch (e) {
-        console.error(
-          `[Longform] skipping user script ${file} due to error:`,
-          e
-        );
+        console.error(`[Longform] skipping user script ${file} due to error:`, e);
       }
     }
 
     console.log(`[Longform] Loaded ${userSteps.length} user script steps.`);
     userScriptSteps.set(userSteps);
-
-    this.initializedSteps = true;
 
     // if workflows have loaded, merge in user steps to get updated values
     const _workflows = get(workflows);
@@ -108,7 +59,7 @@ export class UserScriptObserver {
       const workflow = _workflows[name];
       const workflowSteps = workflow.steps.map((step) => {
         const userStep = userSteps.find(
-          (u) => step.description.canonicalID === u.description.canonicalID
+          (u) => step.description.canonicalID === u.description.canonicalID,
         );
         if (userStep) {
           let mergedStep = {
@@ -158,18 +109,14 @@ export class UserScriptObserver {
     };
 
     const evaluateScript = window.eval(
-      "(function anonymous(require, module, exports){" + js + "\n})"
+      "(function anonymous(require, module, exports){" + js + "\n})",
     );
     evaluateScript(_require, module, exports);
     const loadedStep: any = exports["default"] || module.exports;
 
     if (!loadedStep) {
-      console.error(
-        `[Longform] Failed to load user script ${path}. No exports detected.`
-      );
-      throw new Error(
-        `Failed to load user script ${path}. No exports detected.`
-      );
+      console.error(`[Longform] Failed to load user script ${path}. No exports detected.`);
+      throw new Error(`Failed to load user script ${path}. No exports detected.`);
     }
 
     const step = makeBuiltinStep(
@@ -179,19 +126,17 @@ export class UserScriptObserver {
         description: {
           ...loadedStep.description,
           availableKinds: loadedStep.description.availableKinds.map(
-            (v: string) => CompileStepKind[v as keyof typeof CompileStepKind]
+            (v: string) => CompileStepKind[v as keyof typeof CompileStepKind],
           ),
           options: loadedStep.description.options
             ? loadedStep.description.options.map((o: any) => ({
                 ...o,
-                type: CompileStepOptionType[
-                  o.type as keyof typeof CompileStepOptionType
-                ],
+                type: CompileStepOptionType[o.type as keyof typeof CompileStepOptionType],
               }))
             : [],
         },
       },
-      true
+      true,
     );
 
     return {
@@ -206,12 +151,8 @@ export class UserScriptObserver {
   }
 
   fileEventCallback(file: TAbstractFile): void {
-    if (
-      this.userScriptFolder &&
-      file.path.endsWith("js") &&
-      ((file.parent && file.parent.path == this.userScriptFolder) ||
-        (file.parent === null && file.path.startsWith(this.userScriptFolder)))
-    ) {
+    if (!file.path.endsWith("js")) return;
+    if (file.path.startsWith(this.folder)) {
       this.onScriptModify();
     }
   }
